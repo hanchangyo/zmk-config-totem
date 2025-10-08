@@ -74,6 +74,18 @@
             quick-tap-ms = <130>;
             flavor = "tap-preferred";
         };
+
+        new_behavior: new_behavior {
+            compatible = "zmk,behavior-hold-tap";
+            label = "NEW_BEHAVIOR";
+            bindings = <&kp>, <&kp>;
+
+            #binding-cells = <2>;
+            tapping-term-ms = <200>;
+            quick-tap-ms = <130>;
+            flavor = "tap-preferred";
+            retro-tap;
+        };
     };
 
     keymap {
