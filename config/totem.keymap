@@ -60,6 +60,11 @@
             bindings = <&kp BACKSLASH>;
             key-positions = <18 19>;
         };
+
+        combo_fn_f7 {
+            bindings = <&fn_f7>;
+            key-positions = <27 28>;
+        };
     };
 
     behaviors {
@@ -72,6 +77,22 @@
             tapping-term-ms = <200>;
             quick-tap-ms = <130>;
             flavor = "tap-preferred";
+        };
+    };
+
+    macros {
+        fn_f7: fn_f7 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&macro_press>,
+                <&kp GLOBE>,
+                <&macro_tap>,
+                <&fn_f7>,
+                <&macro_release>,
+                <&kp GLOBE>;
+
+            label = "FN_F7";
         };
     };
 
