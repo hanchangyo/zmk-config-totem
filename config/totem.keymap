@@ -130,10 +130,10 @@
 
         num_layer {
             bindings = <
-        &trans  &trans   &trans   &trans   &trans    &trans  &kp KP_N7  &kp KP_N8  &kp KP_N9  &kp KP_PLUS
-        &trans  &kp F16  &kp F17  &kp F18  &trans    &trans  &kp KP_N4  &kp KP_N5  &kp KP_N6  &kp KP_MINUS
-&trans  &trans  &trans   &trans   &trans   &trans    &trans  &kp KP_N1  &kp KP_N2  &kp KP_N3  &kp KP_ASTERISK  &kp KP_DIVIDE
-                         &trans   &trans   &trans    &trans  &kp KP_N0  &trans
+        &trans  &trans   &trans   &trans   &trans    &kp KP_PLUS      &kp KP_N7  &kp KP_N8  &kp KP_N9  &trans
+        &trans  &kp F16  &kp F17  &kp F18  &trans    &kp KP_MINUS     &kp KP_N4  &kp KP_N5  &kp KP_N6  &kp KP_DIVIDE
+&trans  &trans  &trans   &trans   &trans   &trans    &kp KP_MULTIPLY  &kp KP_N1  &kp KP_N2  &kp KP_N3  &trans         &trans
+                         &trans   &trans   &trans    &trans           &kp KP_N0  &trans
             >;
 
             label = "NUM";
