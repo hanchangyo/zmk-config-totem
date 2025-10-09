@@ -60,11 +60,6 @@
             bindings = <&kp BACKSLASH>;
             key-positions = <18 19>;
         };
-
-        combo_fn_f7 {
-            bindings = <&fn_f7>;
-            key-positions = <27 28>;
-        };
     };
 
     behaviors {
@@ -85,9 +80,12 @@
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings =
-                <&macro_press &kp GLOBE>,
-                <&macro_tap &fn_f7>,
-                <&macro_release &kp GLOBE>;
+                <&macro_press>,
+                <&kp GLOBE>,
+                <&macro_tap>,
+                <&fn_f7>,
+                <&macro_release>,
+                <&kp GLOBE>;
 
             label = "FN_F7";
         };
