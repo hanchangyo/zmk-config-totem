@@ -110,10 +110,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-           &kp Q             &kp W               &kp E             &kp R      &kp T        &kp Y          &kp U      &kp I              &kp O                &kp P
-           &hm LEFT_SHIFT A  &hm LEFT_CONTROL S  &hm LEFT_ALT D    &kp F      &kp G        &kp H          &kp J      &hm RIGHT_ALT K    &hm RIGHT_CONTROL L  &hm RIGHT_SHIFT SEMICOLON
-&kp GRAVE  &kp Z             &kp X               &kp C             &kp V      &kp B        &kp N          &kp M      &kp COMMA          &kp DOT              &kp FSLH                   &kp SQT
-                                                 &kp LEFT_COMMAND  &lt 1 TAB  &lt 2 DEL    &kp BACKSPACE  &kp SPACE  &kp RIGHT_COMMAND
+           &kp Q             &kp W               &kp E             &kp R      &kp T        &kp Y          &kp U      &kp I                &kp O                &kp P
+           &hm LEFT_SHIFT A  &hm LEFT_CONTROL S  &hm LEFT_ALT D    &kp F      &kp G        &kp H          &kp J      &hm RIGHT_ALT K      &hm RIGHT_CONTROL L  &hm RIGHT_SHIFT SEMICOLON
+&kp GRAVE  &kp Z             &kp X               &kp C             &kp V      &kp B        &kp N          &kp M      &kp COMMA            &kp DOT              &kp FSLH                   &kp SQT
+                                                 &kp LEFT_COMMAND  &lt 2 TAB  &lt 2 DEL    &kp BACKSPACE  &kp SPACE  &lt 1 RIGHT_COMMAND
             >;
         };
 
