@@ -85,12 +85,9 @@
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings =
-                <&macro_press>,
-                <&kp GLOBE>,
-                <&macro_tap>,
-                <&fn_f7>,
-                <&macro_release>,
-                <&kp GLOBE>;
+                <&macro_press &kp GLOBE>,
+                <&macro_tap &fn_f7>,
+                <&macro_release &kp GLOBE>;
 
             label = "FN_F7";
         };
