@@ -60,6 +60,11 @@
             bindings = <&kp BACKSLASH>;
             key-positions = <18 19>;
         };
+
+        combo_f7 {
+            bindings = <&kp F7>;
+            key-positions = <27 28>;
+        };
     };
 
     behaviors {
@@ -72,22 +77,6 @@
             tapping-term-ms = <200>;
             quick-tap-ms = <130>;
             flavor = "tap-preferred";
-        };
-    };
-
-    macros {
-        fn_f7: fn_f7 {
-            compatible = "zmk,behavior-macro";
-            #binding-cells = <0>;
-            bindings =
-                <&macro_press>,
-                <&kp GLOBE>,
-                <&macro_tap>,
-                <&fn_f7>,
-                <&macro_release>,
-                <&kp GLOBE>;
-
-            label = "FN_F7";
         };
     };
 
@@ -138,8 +127,8 @@
 
             bindings = <
         &trans  &trans          &mmv MOVE_UP    &trans           &trans            &kp LC(LS(TAB))  &kp HOME    &kp UP             &kp END          &trans
-        &trans  &mmv MOVE_LEFT  &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &msc SCRL_UP      &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
-&trans  &trans  &trans          &trans          &trans           &msc SCRL_DOWN    &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
+        &trans  &mmv MOVE_LEFT  &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &msc SCRL_DOWN    &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
+&trans  &trans  &trans          &trans          &trans           &msc SCRL_UP      &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
                                 &mkp MCLK       &mkp MB1         &mkp MB2          &trans           &trans      &trans
             >;
         };
