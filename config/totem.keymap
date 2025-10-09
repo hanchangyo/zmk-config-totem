@@ -85,12 +85,12 @@
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings =
-                <&macro_press>,
                 <&kp GLOBE>,
-                <&macro_tap>,
+                <&macro_press>,
                 <&fn_f7>,
-                <&macro_release>,
-                <&kp GLOBE>;
+                <&macro_tap>,
+                <&kp GLOBE>,
+                <&macro_release>;
 
             label = "FN_F7";
         };
@@ -207,14 +207,16 @@
                                  &trans        &trans     &trans    &trans  &trans  &trans
             >;
         };
-    };
 
-    conditional_layers {
-        compatible = "zmk,conditional-layers";
-
-        sym_layer {
-            if-layers = <1 2>;
-            then-layer = <3>;
+        layer_5 {
+            bindings = <
+        &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans
+        &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans
+&trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
+                        &trans  &trans  &trans    &trans  &trans  &trans
+            >;
         };
     };
+
+    conditional_layers { compatible = "zmk,conditional-layers"; };
 };
