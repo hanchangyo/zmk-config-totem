@@ -85,12 +85,12 @@
             compatible = "zmk,behavior-macro";
             #binding-cells = <0>;
             bindings =
-                <&kp GLOBE>,
                 <&macro_press>,
-                <&fn_f7>,
-                <&macro_tap>,
                 <&kp GLOBE>,
-                <&macro_release>;
+                <&macro_tap>,
+                <&fn_f7>,
+                <&macro_release>,
+                <&kp GLOBE>;
 
             label = "FN_F7";
         };
@@ -177,10 +177,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &kp EXCL         &kp AT       &kp HASH  &kp DLLR    &kp PRCNT      &kp CARET  &kp AMPS       &kp ASTERISK  &kp SQT           &kp BACKSLASH
-        &kp EXCLAMATION  &kp AT_SIGN  &kp HASH  &kp DOLLAR  &kp PERCENT    &kp CARET  &kp AMPERSAND  &kp ASTERISK  &kp SINGLE_QUOTE  &kp BACKSLASH
-&trans  &trans           &trans       &trans    &trans      &trans         &trans     &trans         &trans        &trans            &trans         &trans
-                                      &trans    &trans      &trans         &trans     &trans         &trans
+        &kp EXCL         &kp AT       &kp HASH  &kp DLLR              &kp PRCNT         &kp CARET        &kp AMPS               &kp ASTERISK  &kp SQT           &kp BACKSLASH
+        &kp EXCLAMATION  &kp AT_SIGN  &kp HASH  &kp LEFT_PARENTHESIS  &kp LEFT_BRACE    &kp RIGHT_BRACE  &kp RIGHT_PARENTHESIS  &kp ASTERISK  &kp SINGLE_QUOTE  &kp BACKSLASH
+&trans  &trans           &trans       &trans    &kp LEFT_BRACKET      &trans            &trans           &kp RIGHT_BRACKET      &trans        &trans            &trans         &trans
+                                      &trans    &trans                &trans            &trans           &trans                 &trans
             >;
         };
 
@@ -205,15 +205,6 @@
         &bootloader  &bt BT_NXT  &trans        &kp GLOBE  &trans    &trans  &kp F4  &kp F5  &kp F6  &kp F11
 &trans  &trans       &bt BT_PRV  &trans        &trans     &trans    &trans  &kp F1  &kp F2  &kp F3  &kp F10  &trans
                                  &trans        &trans     &trans    &trans  &trans  &trans
-            >;
-        };
-
-        layer_5 {
-            bindings = <
-        &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans
-        &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans
-&trans  &trans  &trans  &trans  &trans  &trans    &trans  &trans  &trans  &trans  &trans  &trans
-                        &trans  &trans  &trans    &trans  &trans  &trans
             >;
         };
     };
