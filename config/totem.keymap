@@ -121,7 +121,7 @@
            &kp Q             &kp W               &kp E           &kp R      &kp T               &kp Y                &kp U      &kp I            &kp O                &kp P
            &hm LEFT_SHIFT A  &hm LEFT_CONTROL S  &hm LEFT_ALT D  &kp F      &kp G               &kp H                &kp J      &hm RIGHT_ALT K  &hm RIGHT_CONTROL L  &hm RIGHT_SHIFT SEMICOLON
 &kp GRAVE  &kp Z             &kp X               &kp C           &kp V      &kp B               &kp N                &kp M      &kp COMMA        &kp DOT              &kp FSLH                   &kp SQT
-                                                 &lt 4 DEL       &lt 2 TAB  &kp LEFT_COMMAND    &lt 1 RIGHT_COMMAND  &kp SPACE  &kp BACKSPACE
+                                                 &lt 4 DEL       &lt 2 TAB  &kp LEFT_COMMAND    &lt 1 RIGHT_COMMAND  &kp SPACE  &lt 3 BACKSPACE
             >;
         };
 
@@ -145,7 +145,7 @@
         &trans  &trans          &mmv MOVE_UP    &trans           &trans            &kp LC(LS(TAB))  &kp HOME    &kp UP             &kp END          &trans
         &trans  &mmv MOVE_LEFT  &mmv MOVE_DOWN  &mmv MOVE_RIGHT  &msc SCRL_UP      &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
 &trans  &trans  &trans          &trans          &trans           &msc SCRL_DOWN    &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
-                                &mo 3           &mkp MB1         &mkp MB2          &trans           &trans      &trans
+                                &mkp MCLK       &mkp MB1         &mkp MB2          &trans           &trans      &trans
             >;
         };
 
