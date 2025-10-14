@@ -15,3 +15,15 @@
         , <&xiao_d 8 GPIO_ACTIVE_HIGH>
         ;
 };
+
+/ {
+    chosen {
+        zmk,split-uart = &sercom0;
+    };
+};
+
+&sercom0 {
+    status = "okay";
+    compatible = "arduino,serial";
+    current-speed = <115200>;
+};
