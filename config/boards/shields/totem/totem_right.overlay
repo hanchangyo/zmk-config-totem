@@ -22,12 +22,11 @@
 
 / {
     chosen {
-        zmk,split-uart = &sercom0;
+        zmk,split-uart = &uart0;
     };
 };
 
-&sercom0 {
+&uart0 {
     status = "okay";
-    compatible = "arduino,serial";
     current-speed = <115200>;
 };
