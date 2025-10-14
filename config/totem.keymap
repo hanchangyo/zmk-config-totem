@@ -137,10 +137,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))  &kp LS(LA(LG(O)))  &trans    &kp LC(LS(TAB))  &kp HOME    &kp UP             &kp END          &trans
-        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))  &kp LS(LA(LG(L)))  &trans    &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
-&trans  &trans  &trans             &trans             &trans             &trans    &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
-                                   &trans             &trans             &trans    &trans           &trans      &trans
+        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))      &kp LS(LA(LG(O)))  &trans    &kp LC(LS(TAB))  &kp HOME    &kp UP             &kp END          &trans
+        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))      &kp LS(LA(LG(L)))  &trans    &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
+&trans  &trans  &trans             &kp LA(LS(LG(COMMA)))  &trans             &trans    &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
+                                   &trans                 &trans             &trans    &trans           &trans      &trans
             >;
         };
 
