@@ -172,10 +172,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &kp EXCL  &kp AT  &kp HASH  &kp DLLR              &kp PRCNT         &kp CARET        &kp AMPS               &kp ASTERISK  &kp SQT  &kp BACKSLASH
-        &trans    &trans  &trans    &kp LEFT_PARENTHESIS  &kp LEFT_BRACE    &kp RIGHT_BRACE  &kp RIGHT_PARENTHESIS  &trans        &trans   &trans
-&trans  &trans    &trans  &trans    &kp LEFT_BRACKET      &trans            &trans           &kp RIGHT_BRACKET      &trans        &trans   &trans         &trans
-                          &trans    &trans                &trans            &trans           &trans                 &trans
+        &kp EXCL  &kp AT  &kp HASH  &kp DLLR  &kp PRCNT    &kp CARET  &kp AMPS  &kp ASTERISK  &kp LEFT_PARENTHESIS  &kp RIGHT_PARENTHESIS
+        &trans    &trans  &trans    &trans    &trans       &trans     &trans    &trans        &kp LEFT_BRACE        &kp RIGHT_BRACE
+&trans  &trans    &trans  &trans    &trans    &trans       &trans     &trans    &trans        &kp LEFT_BRACKET      &kp RIGHT_BRACKET      &trans
+                          &trans    &trans    &trans       &trans     &trans    &trans
             >;
         };
 
@@ -196,10 +196,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &sys_reset   &bt BT_CLR  &out OUT_TOG  &trans  &trans    &trans  &kp F7  &kp F8  &kp F9  &kp F12
-        &bootloader  &bt BT_NXT  &trans        &trans  &trans    &trans  &kp F4  &kp F5  &kp F6  &kp F11
-&trans  &trans       &bt BT_PRV  &trans        &trans  &trans    &trans  &kp F1  &kp F2  &kp F3  &kp F10  &trans
-                                 &trans        &trans  &trans    &trans  &trans  &trans
+             &sys_reset    &bt BT_CLR    &out OUT_TOG  &trans        &trans          &trans  &kp F7  &kp F8  &kp F9  &kp F12
+             &bt BT_SEL 0  &bt BT_SEL 1  &bt BT_SEL 2  &bt BT_SEL 3  &bt BT_SEL 4    &trans  &kp F4  &kp F5  &kp F6  &kp F11
+&bootloader  &bt BT_PRV    &bt BT_NXT    &trans        &trans        &trans          &trans  &kp F1  &kp F2  &kp F3  &kp F10  &trans
+                                         &trans        &trans        &trans          &trans  &trans  &trans
             >;
         };
     };
