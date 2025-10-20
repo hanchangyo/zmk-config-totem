@@ -172,10 +172,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &kp EXCL  &kp AT  &kp HASH  &kp DLLR  &kp PRCNT    &kp CARET  &kp AMPS  &kp ASTERISK  &kp LEFT_PARENTHESIS  &kp RIGHT_PARENTHESIS
-        &trans    &trans  &trans    &trans    &trans       &trans     &trans    &trans        &kp LEFT_BRACE        &kp RIGHT_BRACE
-&trans  &trans    &trans  &trans    &trans    &trans       &trans     &trans    &trans        &kp LEFT_BRACKET      &kp RIGHT_BRACKET      &trans
-                          &trans    &trans    &trans       &trans     &trans    &trans
+        &kp EXCL  &kp AT  &kp HASH  &kp DLLR  &kp PRCNT    &kp CARET  &kp AMPS              &kp ASTERISK           &trans  &trans
+        &trans    &trans  &trans    &trans    &trans       &trans     &kp LEFT_PARENTHESIS  &kp RIGHT_PARENTHESIS  &trans  &trans
+&trans  &trans    &trans  &trans    &trans    &trans       &trans     &kp LEFT_BRACKET      &kp RIGHT_BRACKET      &trans  &trans  &trans
+                          &trans    &trans    &trans       &trans     &trans                &trans
             >;
         };
 
