@@ -91,6 +91,11 @@
             bindings = <&double_F18>;
             key-positions = <15 16>;
         };
+
+        combo_double_F {
+            bindings = <&double_F>;
+            key-positions = <7 6 8 9>;
+        };
     };
 
     behaviors {
@@ -144,6 +149,19 @@
                 <&macro_tap>;
 
             label = "DOUBLE_F18";
+        };
+
+        double_F: double_F {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&kp F>,
+                <&macro_tap>,
+                <&macro_wait_time 200>,
+                <&kp F>,
+                <&macro_tap>;
+
+            label = "DOUBLE_F";
         };
     };
 
