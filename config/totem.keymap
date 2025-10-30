@@ -77,9 +77,19 @@
             slow-release;
         };
 
-        combo_F16 {
+        combo_EN {
             bindings = <&double_F16>;
             key-positions = <12 13>;
+        };
+
+        combo_JP {
+            bindings = <&double_F17>;
+            key-positions = <13 14>;
+        };
+
+        combo_KR {
+            bindings = <&double_F18>;
+            key-positions = <15 16>;
         };
     };
 
@@ -103,11 +113,37 @@
             bindings =
                 <&kp F16>,
                 <&macro_tap>,
-                <&macro_wait_time 100>,
+                <&macro_wait_time 200>,
                 <&kp F16>,
                 <&macro_tap>;
 
             label = "DOUBLE_F16";
+        };
+
+        double_F17: double_F17 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&kp F17>,
+                <&macro_tap>,
+                <&macro_wait_time 200>,
+                <&kp F17>,
+                <&macro_tap>;
+
+            label = "DOUBLE_F17";
+        };
+
+        double_F18: double_F18 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&kp F18>,
+                <&macro_tap>,
+                <&macro_wait_time 200>,
+                <&kp F18>,
+                <&macro_tap>;
+
+            label = "DOUBLE_F18";
         };
     };
 
@@ -157,10 +193,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))      &kp LS(LA(LG(O)))  &kp LG(LS(NUMBER_4))    &kp LC(LS(TAB))  &kp LG(LEFT_ARROW)  &kp UP             &kp LG(RIGHT)    &trans
-        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))      &kp LS(LA(LG(L)))  &kp LG(LS(NUMBER_5))    &kp PG_UP        &kp LEFT            &kp DOWN           &kp RIGHT        &kp LC(TAB)
-&trans  &trans  &trans             &kp LA(LS(LG(COMMA)))  &trans             &trans                  &kp PG_DN        &kp C_MUTE          &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
-                                   &trans                 &trans             &trans                  &trans           &trans              &trans
+        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))      &kp LS(LA(LG(O)))  &kp LG(LS(NUMBER_4))    &kp LA(LEFT)  &kp LG(LEFT_ARROW)  &kp UP             &kp LG(RIGHT)    &kp LA(RIGHT)
+        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))      &kp LS(LA(LG(L)))  &kp LG(LS(NUMBER_5))    &kp PG_UP     &kp LEFT            &kp DOWN           &kp RIGHT        &kp LC(TAB)
+&trans  &trans  &trans             &kp LA(LS(LG(COMMA)))  &trans             &trans                  &kp PG_DN     &kp C_MUTE          &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &kp LS(LC(TAB))  &trans
+                                   &trans                 &trans             &trans                  &trans        &trans              &trans
             >;
         };
 
