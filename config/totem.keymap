@@ -76,6 +76,11 @@
             key-positions = <17 18>;
             slow-release;
         };
+
+        combo_F16 {
+            bindings = <&double_F16>;
+            key-positions = <12 13>;
+        };
     };
 
     behaviors {
@@ -88,6 +93,21 @@
             tapping-term-ms = <200>;
             quick-tap-ms = <130>;
             flavor = "tap-preferred";
+        };
+    };
+
+    macros {
+        double_F16: double_F16 {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings =
+                <&kp F16>,
+                <&macro_tap>,
+                <&macro_wait_time 100>,
+                <&kp F16>,
+                <&macro_tap>;
+
+            label = "DOUBLE_F16";
         };
     };
 
@@ -137,10 +157,10 @@
             //                                     ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛   ┗━━━━━━━━━━━┻━━━━━━━━━━━┻━━━━━━━━━━━┛
 
             bindings = <
-        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))      &kp LS(LA(LG(O)))  &kp LG(LS(NUMBER_4))    &kp LC(LS(TAB))  &kp HOME    &kp UP             &kp END          &trans
-        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))      &kp LS(LA(LG(L)))  &kp LG(LS(NUMBER_5))    &kp PG_UP        &kp LEFT    &kp DOWN           &kp RIGHT        &kp LC(TAB)
-&trans  &trans  &trans             &kp LA(LS(LG(COMMA)))  &trans             &trans                  &kp PG_DN        &kp C_MUTE  &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
-                                   &trans                 &trans             &trans                  &trans           &trans      &trans
+        &trans  &kp LS(LA(LG(U)))  &kp LG(LA(LS(I)))      &kp LS(LA(LG(O)))  &kp LG(LS(NUMBER_4))    &kp LC(LS(TAB))  &kp LG(LEFT_ARROW)  &kp UP             &kp LG(RIGHT)    &trans
+        &trans  &kp LS(LA(LG(J)))  &kp LS(LA(LG(K)))      &kp LS(LA(LG(L)))  &kp LG(LS(NUMBER_5))    &kp PG_UP        &kp LEFT            &kp DOWN           &kp RIGHT        &kp LC(TAB)
+&trans  &trans  &trans             &kp LA(LS(LG(COMMA)))  &trans             &trans                  &kp PG_DN        &kp C_MUTE          &kp C_VOLUME_DOWN  &kp C_VOLUME_UP  &trans       &trans
+                                   &trans                 &trans             &trans                  &trans           &trans              &trans
             >;
         };
 
@@ -148,7 +168,7 @@
             bindings = <
         &trans  &trans   &trans   &trans   &trans    &kp KP_PLUS      &kp KP_N7  &kp KP_N8  &kp KP_N9  &kp PERIOD
         &trans  &kp F16  &kp F17  &kp F18  &trans    &kp KP_MINUS     &kp KP_N4  &kp KP_N5  &kp KP_N6  &kp KP_DIVIDE
-&trans  &trans  &trans   &trans   &trans   &trans    &kp KP_MULTIPLY  &kp KP_N1  &kp KP_N2  &kp KP_N3  &trans         &trans
+&trans  &trans  &trans   &trans   &trans   &trans    &kp KP_MULTIPLY  &kp KP_N1  &kp KP_N2  &kp KP_N3  &kp KP_DOT     &trans
                          &trans   &trans   &trans    &trans           &kp KP_N0  &trans
             >;
 
