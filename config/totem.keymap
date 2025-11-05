@@ -79,7 +79,7 @@
 
         combo_EN {
             bindings = <&double_F16>;
-            key-positions = <12 13>;
+            key-positions = <12 13 33>;
         };
 
         combo_JP {
@@ -90,11 +90,6 @@
         combo_KR {
             bindings = <&double_F18>;
             key-positions = <15 16>;
-        };
-
-        combo_double_F {
-            bindings = <&double_F>;
-            key-positions = <7 6 8 9>;
         };
     };
 
@@ -118,7 +113,7 @@
             bindings =
                 <&kp F16>,
                 <&macro_tap>,
-                <&macro_wait_time 200>,
+                <&macro_wait_time 400>,
                 <&kp F16>,
                 <&macro_tap>;
 
@@ -131,7 +126,7 @@
             bindings =
                 <&kp F17>,
                 <&macro_tap>,
-                <&macro_wait_time 200>,
+                <&macro_wait_time 400>,
                 <&kp F17>,
                 <&macro_tap>;
 
@@ -144,7 +139,7 @@
             bindings =
                 <&kp F18>,
                 <&macro_tap>,
-                <&macro_wait_time 200>,
+                <&macro_wait_time 400>,
                 <&kp F18>,
                 <&macro_tap>;
 
