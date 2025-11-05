@@ -79,7 +79,7 @@
 
         combo_EN {
             bindings = <&double_F16>;
-            key-positions = <12 13 33>;
+            key-positions = <12 13>;
         };
 
         combo_JP {
