@@ -35,6 +35,9 @@ struct trackpoint_config {
 	uint32_t poll_active_ms;
 	uint32_t idle_timeout_ms;
 	int32_t dead_zone;
+	int32_t max_speed;
+	bool invert_x;
+	bool invert_y;
 };
 
 struct trackpoint_data {
@@ -45,7 +48,19 @@ struct trackpoint_data {
 	int32_t dx_offset_q8;
 	int32_t dy_offset_q8;
 	uint8_t last_buttons;
+	bool baseline_seeded;
 };
+
+static inline int16_t clamp_speed(int32_t v, int32_t limit)
+{
+	if (v > limit) {
+		return (int16_t)limit;
+	}
+	if (v < -limit) {
+		return (int16_t)(-limit);
+	}
+	return (int16_t)v;
+}
 
 static void trackpoint_emit(const struct device *dev, int16_t dx, int16_t dy,
 			    uint8_t buttons, uint8_t last_buttons)
@@ -102,12 +117,28 @@ static void trackpoint_poll(struct k_work *work)
 	int16_t raw_dy = (int16_t)((uint16_t)buf[3] | ((uint16_t)buf[4] << 8));
 	uint8_t buttons = buf[9];
 
+	/*
+	 * Seed the baseline from the first sample so we don't flood the host
+	 * with motion while the Q8 filter (which only tracks within the dead
+	 * zone) is converging from zero.
+	 */
+	if (!data->baseline_seeded) {
+		data->dx_offset_q8 = ((int32_t)raw_dx) << 8;
+		data->dy_offset_q8 = ((int32_t)raw_dy) << 8;
+		data->baseline_seeded = true;
+	}
+
 	int16_t offset_dx = (int16_t)((data->dx_offset_q8 + 128) >> 8);
 	int16_t offset_dy = (int16_t)((data->dy_offset_q8 + 128) >> 8);
 	int16_t comp_dx = raw_dx - offset_dx;
 	int16_t comp_dy = raw_dy - offset_dy;
 
-	if (data->current_poll_ms == cfg->poll_idle_ms && buttons == 0 &&
+	/*
+	 * Learn drift whenever we're sitting in the dead zone, regardless of
+	 * polling mode -- otherwise baseline warming during active use never
+	 * gets re-tracked.
+	 */
+	if (buttons == 0 &&
 	    abs(comp_dx) < cfg->dead_zone && abs(comp_dy) < cfg->dead_zone) {
 		int32_t target_dx_q8 = ((int32_t)raw_dx) << 8;
 		int32_t target_dy_q8 = ((int32_t)raw_dy) << 8;
@@ -122,11 +153,13 @@ static void trackpoint_poll(struct k_work *work)
 		comp_dy = raw_dy - offset_dy;
 	}
 
-	int16_t dx = comp_dx;
-	int16_t dy = comp_dy;
-	if (abs(dx) < cfg->dead_zone && abs(dy) < cfg->dead_zone) {
-		dx = 0;
-		dy = 0;
+	int16_t dx = 0;
+	int16_t dy = 0;
+	if (abs(comp_dx) >= cfg->dead_zone || abs(comp_dy) >= cfg->dead_zone) {
+		int32_t sx = cfg->invert_x ? -(int32_t)comp_dx : (int32_t)comp_dx;
+		int32_t sy = cfg->invert_y ? -(int32_t)comp_dy : (int32_t)comp_dy;
+		dx = clamp_speed(sx, cfg->max_speed);
+		dy = clamp_speed(sy, cfg->max_speed);
 	}
 
 	trackpoint_emit(dev, dx, dy, buttons, data->last_buttons);
@@ -161,6 +194,7 @@ static int trackpoint_init(const struct device *dev)
 	data->dx_offset_q8 = 0;
 	data->dy_offset_q8 = 0;
 	data->last_buttons = 0;
+	data->baseline_seeded = false;
 
 	k_work_init_delayable(&data->work, trackpoint_poll);
 	k_work_reschedule(&data->work, K_MSEC(500));
@@ -178,6 +212,9 @@ static int trackpoint_init(const struct device *dev)
 		.poll_active_ms = DT_INST_PROP(n, poll_interval_active_ms),    \
 		.idle_timeout_ms = DT_INST_PROP(n, idle_timeout_ms),           \
 		.dead_zone = DT_INST_PROP(n, dead_zone),                       \
+		.max_speed = DT_INST_PROP(n, max_speed),                       \
+		.invert_x = DT_INST_PROP(n, invert_x),                         \
+		.invert_y = DT_INST_PROP(n, invert_y),                         \
 	};                                                                     \
 	DEVICE_DT_INST_DEFINE(n, trackpoint_init, NULL,                        \
 			      &trackpoint_data_##n, &trackpoint_cfg_##n,       \

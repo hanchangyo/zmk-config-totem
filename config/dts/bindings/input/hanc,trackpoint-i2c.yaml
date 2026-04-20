@@ -31,3 +31,18 @@ properties:
     description: |
       Magnitude below which compensated dx/dy are treated as zero. Also
       used as the gate for baseline drift learning while idle.
+
+  max-speed:
+    type: int
+    default: 64
+    description: |
+      Per-sample clamp applied to dx and dy after compensation. Prevents
+      a single spurious large sample from warping the cursor.
+
+  invert-x:
+    type: boolean
+    description: Invert the reported X axis.
+
+  invert-y:
+    type: boolean
+    description: Invert the reported Y axis.
