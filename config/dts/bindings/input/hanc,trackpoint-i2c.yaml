@@ -1,0 +1,33 @@
+description: |
+  Custom I2C trackpoint bridge where an ATtiny co-processor exposes
+  10-byte polled reports (seq, dx, dy, x, y, buttons). Ported from the
+  standalone xiao nrf52840 trackpoint reader project.
+
+compatible: "hanc,trackpoint-i2c"
+
+include: [i2c-device.yaml]
+
+properties:
+  poll-interval-idle-ms:
+    type: int
+    default: 125
+    description: Polling period when the pointer is idle.
+
+  poll-interval-active-ms:
+    type: int
+    default: 5
+    description: Polling period when the pointer is actively moving.
+
+  idle-timeout-ms:
+    type: int
+    default: 1500
+    description: |
+      Time without detected motion after which the driver returns to the
+      idle polling rate.
+
+  dead-zone:
+    type: int
+    default: 20
+    description: |
+      Magnitude below which compensated dx/dy are treated as zero. Also
+      used as the gate for baseline drift learning while idle.

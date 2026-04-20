@@ -1,0 +1,18 @@
+config HANC_TRACKPOINT_I2C
+    bool "Hanc custom I2C trackpoint driver"
+    default y
+    depends on DT_HAS_HANC_TRACKPOINT_I2C_ENABLED
+    select I2C
+    select INPUT
+    help
+      Polls a hanc,trackpoint-i2c compatible ATtiny co-processor over I2C
+      and forwards dx/dy/button deltas to the Zephyr input subsystem so
+      they can drive ZMK pointing through an input-listener.
+
+if HANC_TRACKPOINT_I2C
+
+module = HANC_TRACKPOINT_I2C
+module-str = Hanc Trackpoint I2C
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # HANC_TRACKPOINT_I2C
