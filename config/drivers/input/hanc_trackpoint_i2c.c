@@ -36,6 +36,7 @@ struct trackpoint_config {
 	uint32_t idle_timeout_ms;
 	int32_t dead_zone;
 	int32_t max_speed;
+	uint16_t seed_samples;
 	bool invert_x;
 	bool invert_y;
 };
@@ -47,6 +48,9 @@ struct trackpoint_data {
 	int64_t last_move_time;
 	int32_t dx_offset_q8;
 	int32_t dy_offset_q8;
+	int32_t seed_dx_sum_q8;
+	int32_t seed_dy_sum_q8;
+	uint16_t seed_samples_remaining;
 	uint8_t last_buttons;
 	bool baseline_seeded;
 };
@@ -118,14 +122,30 @@ static void trackpoint_poll(struct k_work *work)
 	uint8_t buttons = buf[9];
 
 	/*
-	 * Seed the baseline from the first sample so we don't flood the host
-	 * with motion while the Q8 filter (which only tracks within the dead
-	 * zone) is converging from zero.
+	 * Average the first `seed-samples` readings into the baseline before
+	 * emitting any motion. A single-sample seed was vulnerable to a
+	 * spurious spike locking the offset into a wrong spot; averaging
+	 * smooths that out at the cost of a brief boot delay.
 	 */
 	if (!data->baseline_seeded) {
-		data->dx_offset_q8 = ((int32_t)raw_dx) << 8;
-		data->dy_offset_q8 = ((int32_t)raw_dy) << 8;
-		data->baseline_seeded = true;
+		data->seed_dx_sum_q8 += ((int32_t)raw_dx) << 8;
+		data->seed_dy_sum_q8 += ((int32_t)raw_dy) << 8;
+		data->seed_samples_remaining--;
+
+		if (data->seed_samples_remaining == 0) {
+			int32_t n = (int32_t)cfg->seed_samples;
+			data->dx_offset_q8 = data->seed_dx_sum_q8 / n;
+			data->dy_offset_q8 = data->seed_dy_sum_q8 / n;
+			data->baseline_seeded = true;
+			data->current_poll_ms = cfg->poll_idle_ms;
+			data->last_move_time = k_uptime_get();
+			LOG_INF("baseline seeded: dx_off=%d dy_off=%d",
+				(int)(data->dx_offset_q8 >> 8),
+				(int)(data->dy_offset_q8 >> 8));
+		}
+
+		k_work_reschedule(dwork, K_MSEC(data->current_poll_ms));
+		return;
 	}
 
 	int16_t offset_dx = (int16_t)((data->dx_offset_q8 + 128) >> 8);
@@ -189,12 +209,17 @@ static int trackpoint_init(const struct device *dev)
 	}
 
 	data->dev = dev;
-	data->current_poll_ms = cfg->poll_idle_ms;
 	data->last_move_time = k_uptime_get();
 	data->dx_offset_q8 = 0;
 	data->dy_offset_q8 = 0;
+	data->seed_dx_sum_q8 = 0;
+	data->seed_dy_sum_q8 = 0;
+	data->seed_samples_remaining = cfg->seed_samples;
 	data->last_buttons = 0;
-	data->baseline_seeded = false;
+	data->baseline_seeded = (cfg->seed_samples == 0);
+	/* Seed fast at the active rate; fall back to idle once seeded. */
+	data->current_poll_ms = data->baseline_seeded ? cfg->poll_idle_ms
+						      : cfg->poll_active_ms;
 
 	k_work_init_delayable(&data->work, trackpoint_poll);
 	k_work_reschedule(&data->work, K_MSEC(500));
@@ -213,6 +238,7 @@ static int trackpoint_init(const struct device *dev)
 		.idle_timeout_ms = DT_INST_PROP(n, idle_timeout_ms),           \
 		.dead_zone = DT_INST_PROP(n, dead_zone),                       \
 		.max_speed = DT_INST_PROP(n, max_speed),                       \
+		.seed_samples = DT_INST_PROP(n, seed_samples),                 \
 		.invert_x = DT_INST_PROP(n, invert_x),                         \
 		.invert_y = DT_INST_PROP(n, invert_y),                         \
 	};                                                                     \

@@ -46,3 +46,15 @@ properties:
   invert-y:
     type: boolean
     description: Invert the reported Y axis.
+
+  seed-samples:
+    type: int
+    default: 128
+    description: |
+      Number of initial samples averaged at boot to seed the baseline
+      offset. Seeding runs at the active poll rate and emits no motion,
+      so total boot-to-ready delay is roughly
+      seed-samples * poll-interval-active-ms. When seeding finishes the
+      driver drops straight to the idle poll rate. Keep the pointer
+      untouched during this window so the baseline lands at the true
+      rest point.
