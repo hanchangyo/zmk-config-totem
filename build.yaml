@@ -1,7 +1,10 @@
 include:
+  # TEMPORARY: only the left half is built for the BLE-off ADC noise
+  # test. Right half needs BLE to pair and is irrelevant for this
+  # investigation. Restore `totem_right` once the test is done.
   - board: seeeduino_xiao_ble
     shield: totem_left
-  - board: seeeduino_xiao_ble
-    shield: totem_right
+  # - board: seeeduino_xiao_ble
+  #   shield: totem_right
 
 # there is no settingsreset (needed) for the XIAO
