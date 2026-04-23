@@ -1,0 +1,2 @@
+zephyr_library()
+zephyr_library_sources_ifdef(CONFIG_INPUT_HANC_TRACKPOINT_I2C trackpoint_i2c.c)

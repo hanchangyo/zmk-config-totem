@@ -1,0 +1,33 @@
+description: ATTiny-based I2C trackpoint (10-byte seq/dx/dy/x/y/buttons packet)
+
+compatible: "hanc,trackpoint-i2c"
+
+include: i2c-device.yaml
+
+properties:
+  low-poll-ms:
+    type: int
+    default: 125
+    description: Poll interval while idle (ms).
+
+  high-poll-ms:
+    type: int
+    default: 5
+    description: Poll interval while moving (ms).
+
+  idle-timeout-ms:
+    type: int
+    default: 1500
+    description: Return to idle polling after this many ms without motion.
+
+  dead-zone:
+    type: int
+    default: 20
+    description: Magnitude below which dx/dy are clamped to zero.
+
+  offset-filter-shift:
+    type: int
+    default: 4
+    description: |
+      Q8 baseline-drift filter shift (alpha = 1/2^shift). Larger values
+      learn the zero point more slowly.

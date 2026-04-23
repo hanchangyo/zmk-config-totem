@@ -6,6 +6,9 @@
 
 #include "totem.dtsi"
 
+#include <dt-bindings/zmk/input_transform.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
 &kscan0 {
     col-gpios
         = <&xiao_d 4 GPIO_ACTIVE_HIGH>
@@ -14,4 +17,49 @@
         , <&xiao_d 9 GPIO_ACTIVE_HIGH>
         , <&xiao_d 8 GPIO_ACTIVE_HIGH>
         ;
+};
+
+/*
+ * I2C trackpoint on the left half.
+ * The XIAO nRF52840 default SDA/SCL (P0.04/P0.05) are reused as kscan cols,
+ * so we re-route i2c0 to the broken-out test pads at P1.00 (SDA) and
+ * P0.16 (SCL), matching the Arduino prototype wiring.
+ */
+&pinctrl {
+    i2c0_default_alt: i2c0_default_alt {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+        };
+    };
+
+    i2c0_sleep_alt: i2c0_sleep_alt {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+            low-power-enable;
+        };
+    };
+};
+
+&i2c0 {
+    status = "okay";
+    compatible = "nordic,nrf-twi";
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&i2c0_default_alt>;
+    pinctrl-1 = <&i2c0_sleep_alt>;
+    pinctrl-names = "default", "sleep";
+
+    trackpoint: trackpoint@20 {
+        compatible = "hanc,trackpoint-i2c";
+        reg = <0x20>;
+        status = "okay";
+    };
+};
+
+/ {
+    trackpoint_listener: trackpoint_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpoint>;
+    };
 };
