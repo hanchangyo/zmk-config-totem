@@ -106,6 +106,11 @@ static int trackpoint_poll_once(const struct device *dev) {
     uint8_t seq     = buf[0];
     int16_t raw_dx  = (int16_t)((uint16_t)buf[1] | ((uint16_t)buf[2] << 8));
     int16_t raw_dy  = (int16_t)((uint16_t)buf[3] | ((uint16_t)buf[4] << 8));
+    /* Also grab the absolute ADC readings (LE uint16, 0..1023 range)
+     * so debug logs can distinguish "stick physically moved" from
+     * "ATTiny fed us noise". Protocol: raw_dx == raw_x - 512. */
+    uint16_t raw_ax = (uint16_t)buf[5] | ((uint16_t)buf[6] << 8);
+    uint16_t raw_ay = (uint16_t)buf[7] | ((uint16_t)buf[8] << 8);
     uint8_t buttons = buf[9];
 
     bool fresh_sample = !data->seq_valid || (seq != data->last_seq);
@@ -176,11 +181,9 @@ static int trackpoint_poll_once(const struct device *dev) {
 
         /* Full raw dump for every motion report. Makes it easy to
          * correlate ATTiny output with perceived cursor behavior. */
-        LOG_INF("mv seq=%u buf=[%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x] "
-                "raw=(%d,%d) off=(%d,%d) comp=(%d,%d) out=(%d,%d) btn=0x%x qt=%lldms",
-                seq,
-                buf[0], buf[1], buf[2], buf[3], buf[4],
-                buf[5], buf[6], buf[7], buf[8], buf[9],
+        LOG_INF("mv seq=%u adc=(%u,%u) raw=(%d,%d) off=(%d,%d) "
+                "comp=(%d,%d) out=(%d,%d) btn=0x%x qt=%lldms",
+                seq, raw_ax, raw_ay,
                 raw_dx, raw_dy, off_dx, off_dy, comp_dx, comp_dy,
                 dx, dy, buttons, (long long)quiet_ms);
 

@@ -49,7 +49,13 @@
 
 &i2c1 {
     status = "okay";
-    clock-frequency = <I2C_BITRATE_FAST>;
+    /* The ATTiny I2C slave is software/USI-based and doesn't cleanly
+     * handle fast mode (400 kHz). The Arduino reference test uses
+     * Wire.begin() with its default 100 kHz (standard), and at that
+     * speed the ADC readings stay stable. I2C_BITRATE_FAST caused
+     * the ATTiny to return torn / noisy samples that looked like
+     * random pointer teleports. */
+    clock-frequency = <I2C_BITRATE_STANDARD>;
     pinctrl-0 = <&tp_i2c_default>;
     pinctrl-1 = <&tp_i2c_sleep>;
     pinctrl-names = "default", "sleep";
