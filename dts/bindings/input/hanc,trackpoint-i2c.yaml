@@ -31,3 +31,26 @@ properties:
     description: |
       Q8 baseline-drift filter shift (alpha = 1/2^shift). Larger values
       learn the zero point more slowly.
+
+  scale-shift:
+    type: int
+    default: 0
+    description: |
+      Right-shift applied to dx/dy before reporting (divide by 2^shift).
+      The ATTiny emits raw force readings that are too large for a mouse
+      HID report; a shift of 2-4 (divide by 4-16) usually feels right.
+
+  max-delta:
+    type: int
+    default: 127
+    description: |
+      Per-report clamp for |dx| and |dy|. Prevents one stale/accumulated
+      sample from teleporting the cursor.
+
+  invert-x:
+    type: boolean
+    description: Negate dx before reporting.
+
+  invert-y:
+    type: boolean
+    description: Negate dy before reporting.

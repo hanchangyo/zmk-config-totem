@@ -29,6 +29,10 @@ struct tp_config {
     uint16_t idle_timeout_ms;
     uint16_t dead_zone;
     uint8_t  offset_filter_shift;
+    uint8_t  scale_shift;
+    int16_t  max_delta;
+    bool     invert_x;
+    bool     invert_y;
 };
 
 struct tp_data {
@@ -89,9 +93,20 @@ static void tp_poll_work(struct k_work *work)
         dy = 0;
     }
 
-    if (dx != 0 || dy != 0) {
-        input_report_rel(dev, INPUT_REL_X, dx, false, K_NO_WAIT);
-        input_report_rel(dev, INPUT_REL_Y, dy, true,  K_NO_WAIT);
+    int32_t out_dx = dx;
+    int32_t out_dy = dy;
+    if (cfg->scale_shift) {
+        out_dx >>= cfg->scale_shift;
+        out_dy >>= cfg->scale_shift;
+    }
+    if (cfg->invert_x) { out_dx = -out_dx; }
+    if (cfg->invert_y) { out_dy = -out_dy; }
+    out_dx = CLAMP(out_dx, -cfg->max_delta, cfg->max_delta);
+    out_dy = CLAMP(out_dy, -cfg->max_delta, cfg->max_delta);
+
+    if (out_dx != 0 || out_dy != 0) {
+        input_report_rel(dev, INPUT_REL_X, out_dx, false, K_NO_WAIT);
+        input_report_rel(dev, INPUT_REL_Y, out_dy, true,  K_NO_WAIT);
     }
 
     /* Dynamic polling: jump to high-poll on motion, fall back after idle timeout. */
@@ -141,6 +156,10 @@ static int tp_init(const struct device *dev)
         .idle_timeout_ms     = DT_INST_PROP(n, idle_timeout_ms),                \
         .dead_zone           = DT_INST_PROP(n, dead_zone),                      \
         .offset_filter_shift = DT_INST_PROP(n, offset_filter_shift),            \
+        .scale_shift         = DT_INST_PROP(n, scale_shift),                    \
+        .max_delta           = DT_INST_PROP(n, max_delta),                      \
+        .invert_x            = DT_INST_PROP(n, invert_x),                       \
+        .invert_y            = DT_INST_PROP(n, invert_y),                       \
     };                                                                          \
     DEVICE_DT_INST_DEFINE(n, tp_init, NULL,                                     \
                           &tp_data_##n, &tp_cfg_##n,                            \

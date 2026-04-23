@@ -54,6 +54,9 @@
         compatible = "hanc,trackpoint-i2c";
         reg = <0x20>;
         status = "okay";
+        invert-y;
+        scale-shift = <3>;   /* divide raw dx/dy by 8 */
+        max-delta = <64>;    /* clamp per-report jumps */
     };
 };
 
