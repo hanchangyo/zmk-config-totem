@@ -3,7 +3,7 @@ config INPUT_HANC_TRACKPOINT_I2C
 	default y
 	depends on DT_HAS_HANC_TRACKPOINT_I2C_ENABLED
 	depends on I2C
-	select INPUT
+	depends on INPUT
 	help
 	  Enable the hanc,trackpoint-i2c input driver. Polls an ATTiny-based
 	  trackpoint module over I2C and emits INPUT_EV_REL events.
