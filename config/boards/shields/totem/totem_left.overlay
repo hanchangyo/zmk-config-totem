@@ -69,11 +69,11 @@
         /* Raw samples within +/- dead-zone are treated as no-motion and
          * used to self-calibrate the baseline; tune up if the pointer
          * still drifts while untouched. */
-        dead-zone = <30>;
+        dead-zone = <50>;
 
         /* Output divisor = 2^sensitivity-shift. Increase for slower,
          * finer cursor movement; decrease to make the stick feel faster. */
-        sensitivity-shift = <3>;
+        sensitivity-shift = <2>;
     };
 };
 
