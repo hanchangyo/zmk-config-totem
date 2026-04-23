@@ -20,7 +20,14 @@
 
 LOG_MODULE_REGISTER(hanc_trackpoint_i2c, CONFIG_INPUT_HANC_TRACKPOINT_I2C_LOG_LEVEL);
 
-#define TP_PACKET_LEN 10
+#define TP_PACKET_LEN    10
+#define TP_WQ_PRIORITY   5   /* preemptive, above BLE work */
+#define TP_STALE_FACTOR  3   /* skip HID if elapsed > N * expected interval */
+
+static K_THREAD_STACK_DEFINE(tp_wq_stack,
+                             CONFIG_INPUT_HANC_TRACKPOINT_I2C_THREAD_STACK_SIZE);
+static struct k_work_q tp_wq;
+static bool tp_wq_started;
 
 struct tp_config {
     struct i2c_dt_spec bus;
@@ -43,6 +50,7 @@ struct tp_data {
     int32_t dy_offset_q8;
 
     uint32_t last_move_time;
+    uint32_t last_poll_time;
     uint16_t current_poll_ms;
 };
 
@@ -53,11 +61,17 @@ static void tp_poll_work(struct k_work *work)
     const struct device *dev = data->dev;
     const struct tp_config *cfg = dev->config;
 
+    uint32_t now = k_uptime_get_32();
+    uint32_t elapsed = now - data->last_poll_time;
+    bool stale_gap = elapsed > (uint32_t)data->current_poll_ms * TP_STALE_FACTOR;
+    data->last_poll_time = now;
+
     uint8_t buf[TP_PACKET_LEN];
     int ret = i2c_read_dt(&cfg->bus, buf, sizeof(buf));
     if (ret < 0) {
         LOG_WRN("i2c_read_dt failed: %d", ret);
-        k_work_reschedule(&data->poll_work, K_MSEC(cfg->low_poll_ms));
+        k_work_reschedule_for_queue(&tp_wq, &data->poll_work,
+                                    K_MSEC(cfg->low_poll_ms));
         return;
     }
 
@@ -104,13 +118,15 @@ static void tp_poll_work(struct k_work *work)
     out_dx = CLAMP(out_dx, -cfg->max_delta, cfg->max_delta);
     out_dy = CLAMP(out_dy, -cfg->max_delta, cfg->max_delta);
 
-    if (out_dx != 0 || out_dy != 0) {
+    if (stale_gap) {
+        LOG_WRN("stale sample: elapsed %u ms vs expected %u ms — dropping HID",
+                elapsed, data->current_poll_ms);
+    } else if (out_dx != 0 || out_dy != 0) {
         input_report_rel(dev, INPUT_REL_X, out_dx, false, K_NO_WAIT);
         input_report_rel(dev, INPUT_REL_Y, out_dy, true,  K_NO_WAIT);
     }
 
     /* Dynamic polling: jump to high-poll on motion, fall back after idle timeout. */
-    uint32_t now = k_uptime_get_32();
     if (abs(dx) > cfg->dead_zone || abs(dy) > cfg->dead_zone) {
         if (data->current_poll_ms == cfg->low_poll_ms) {
             LOG_INF("movement: switching to %u ms poll", cfg->high_poll_ms);
@@ -123,7 +139,8 @@ static void tp_poll_work(struct k_work *work)
         data->current_poll_ms = cfg->low_poll_ms;
     }
 
-    k_work_reschedule(&data->poll_work, K_MSEC(data->current_poll_ms));
+    k_work_reschedule_for_queue(&tp_wq, &data->poll_work,
+                                K_MSEC(data->current_poll_ms));
 }
 
 static int tp_init(const struct device *dev)
@@ -139,9 +156,22 @@ static int tp_init(const struct device *dev)
     data->dev = dev;
     data->current_poll_ms = cfg->low_poll_ms;
     data->last_move_time = k_uptime_get_32();
+    data->last_poll_time = data->last_move_time;
+
+    if (!tp_wq_started) {
+        struct k_work_queue_config wq_cfg = {
+            .name = "hanc_tp_wq",
+            .no_yield = false,
+        };
+        k_work_queue_start(&tp_wq, tp_wq_stack,
+                           K_THREAD_STACK_SIZEOF(tp_wq_stack),
+                           TP_WQ_PRIORITY, &wq_cfg);
+        tp_wq_started = true;
+    }
 
     k_work_init_delayable(&data->poll_work, tp_poll_work);
-    k_work_reschedule(&data->poll_work, K_MSEC(cfg->low_poll_ms));
+    k_work_reschedule_for_queue(&tp_wq, &data->poll_work,
+                                K_MSEC(cfg->low_poll_ms));
 
     LOG_INF("hanc trackpoint ready on %s addr 0x%02x", cfg->bus.bus->name, cfg->bus.addr);
     return 0;
