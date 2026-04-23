@@ -56,7 +56,8 @@
         status = "okay";
         invert-y;
         scale-shift = <3>;   /* divide raw dx/dy by 8 */
-        max-delta = <64>;    /* clamp per-report jumps */
+        max-delta = <24>;    /* tight clamp so spikes can't teleport */
+        dead-zone = <35>;    /* wider idle band to reject stray bursts */
     };
 };
 
