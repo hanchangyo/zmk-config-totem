@@ -1,0 +1,41 @@
+menuconfig INPUT_TRACKPOINT
+    bool "ATTiny I2C TrackPoint input driver"
+    default y
+    depends on DT_HAS_ZMK_INPUT_TRACKPOINT_ENABLED
+    select I2C
+    select INPUT
+    help
+      Enable the out-of-tree ATTiny-over-I2C TrackPoint driver that emits
+      INPUT_REL_X / INPUT_REL_Y events suitable for ZMK's pointing subsystem.
+
+if INPUT_TRACKPOINT
+
+config INPUT_TRACKPOINT_INVERT_X
+    bool "Invert X axis"
+    default n
+    help
+      Negate the reported dx value before emitting the input event.
+
+config INPUT_TRACKPOINT_INVERT_Y
+    bool "Invert Y axis"
+    default y
+    help
+      Negate the reported dy value before emitting the input event.
+      Enabled by default because the sensor's native Y direction is
+      opposite to the HID mouse convention on this hardware.
+
+config INPUT_TRACKPOINT_SWAP_XY
+    bool "Swap X and Y axes"
+    default n
+    help
+      Swap dx and dy before applying the invert flags. Useful if the
+      sensor is mounted rotated 90 degrees relative to the keyboard.
+
+config INPUT_TRACKPOINT_LOG_LEVEL
+    int "Log level"
+    default 2
+    range 0 4
+    help
+      0=off, 1=err, 2=wrn, 3=inf, 4=dbg
+
+endif # INPUT_TRACKPOINT

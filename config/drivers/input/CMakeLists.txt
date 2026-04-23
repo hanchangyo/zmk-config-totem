@@ -1,0 +1,2 @@
+zephyr_library_named(input_trackpoint)
+zephyr_library_sources(input_trackpoint.c)

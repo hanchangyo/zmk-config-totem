@@ -6,6 +6,9 @@
 
 #include "totem.dtsi"
 
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <dt-bindings/i2c/i2c.h>
+
 &kscan0 {
     col-gpios
         = <&xiao_d 4 GPIO_ACTIVE_HIGH>
@@ -14,4 +17,54 @@
         , <&xiao_d 9 GPIO_ACTIVE_HIGH>
         , <&xiao_d 8 GPIO_ACTIVE_HIGH>
         ;
+};
+
+/*
+ * The left half hosts the ATTiny I2C TrackPoint module.
+ * Wiring (matches the standalone Arduino test project):
+ *     SDA -> P1.00
+ *     SCL -> P0.16
+ *
+ * i2c1 is used because i2c0's default pins (D4/D5) are already taken by
+ * the key matrix columns on the left half. The XIAO BLE board DTS already
+ * has i2c1 enabled as "nordic,nrf-twi", we just remap its pinctrl psels.
+ */
+
+&i2c1_default {
+    group1 {
+        psels = <NRF_PSEL(TWI_SDA, 1, 0)>,
+                <NRF_PSEL(TWI_SCL, 0, 16)>;
+    };
+};
+
+&i2c1_sleep {
+    group1 {
+        psels = <NRF_PSEL(TWI_SDA, 1, 0)>,
+                <NRF_PSEL(TWI_SCL, 0, 16)>;
+        low-power-enable;
+    };
+};
+
+&i2c1 {
+    status = "okay";
+    clock-frequency = <I2C_BITRATE_FAST>;
+
+    trackpoint: trackpoint@20 {
+        compatible = "zmk,input-trackpoint";
+        reg = <0x20>;
+        status = "okay";
+
+        poll-period-ms = <5>;
+        idle-poll-period-ms = <125>;
+        idle-timeout-ms = <1500>;
+        dead-zone = <20>;
+    };
+};
+
+/ {
+    trackpoint_listener: trackpoint_listener {
+        compatible = "zmk,input-listener";
+        status = "okay";
+        device = <&trackpoint>;
+    };
 };

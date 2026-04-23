@@ -1,0 +1,28 @@
+description: ATTiny I2C TrackPoint pointer
+
+compatible: "zmk,input-trackpoint"
+
+include: i2c-device.yaml
+
+properties:
+  poll-period-ms:
+    type: int
+    default: 5
+    description: Poll period (ms) while the trackpoint is actively moving.
+
+  idle-poll-period-ms:
+    type: int
+    default: 125
+    description: Poll period (ms) when the trackpoint is idle.
+
+  idle-timeout-ms:
+    type: int
+    default: 1500
+    description: After this many ms without motion, revert from active to idle poll rate.
+
+  dead-zone:
+    type: int
+    default: 20
+    description: |
+      Raw dx/dy samples within +/- this range are treated as no-motion and
+      also used to adaptively learn the zero-motion baseline.
