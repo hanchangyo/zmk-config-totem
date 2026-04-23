@@ -1,0 +1,8 @@
+config ATTINY_I2C_TP
+    bool "ATTiny I2C Trackpoint input driver"
+    default n
+    depends on I2C && INPUT
+    help
+      Driver for trackpoint modules connected via I2C to an ATTiny
+      co-processor. Reports relative X/Y movement and button events
+      through Zephyr's input subsystem.

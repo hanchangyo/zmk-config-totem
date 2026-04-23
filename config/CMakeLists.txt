@@ -1,0 +1,1 @@
+add_subdirectory_ifdef(CONFIG_ATTINY_I2C_TP drivers)

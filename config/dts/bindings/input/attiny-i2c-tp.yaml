@@ -1,0 +1,5 @@
+description: ATTiny I2C Trackpoint
+
+compatible: "attiny-i2c-tp"
+
+include: i2c-device.yaml
