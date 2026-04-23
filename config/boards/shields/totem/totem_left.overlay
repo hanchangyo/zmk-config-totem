@@ -84,9 +84,15 @@
 };
 
 / {
+    /*
+     * HID mouse forwarding disabled for debugging — we only want the
+     * driver to print what the ATTiny is giving us, without any cursor
+     * movement on the host muddying the picture. Flip status back to
+     * "okay" when finished debugging.
+     */
     trackpoint_listener: trackpoint_listener {
         compatible = "zmk,input-listener";
-        status = "okay";
+        status = "disabled";
         device = <&trackpoint>;
     };
 

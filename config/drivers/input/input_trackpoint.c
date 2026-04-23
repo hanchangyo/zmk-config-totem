@@ -1,26 +1,27 @@
 /*
- * ATTiny I2C TrackPoint driver for ZMK.
+ * Minimal ATTiny I2C TrackPoint driver for ZMK — DEBUG BUILD.
  *
- * Behavior mirrors the Arduino reference implementation, with a few
- * additions needed once the stream is fed into an HID mouse:
- *   - Read 10 bytes from the ATTiny (default addr 0x20):
- *       buf[0]   : sequence counter (wraps 0..255)
- *       buf[1-2] : int16_t raw_dx (little-endian)
- *       buf[3-4] : int16_t raw_dy
- *       buf[5-6] : int16_t raw_x   (unused here)
- *       buf[7-8] : int16_t raw_y   (unused here)
- *       buf[9]   : button bitmap (bit0/1/2 -> BTN_0/1/2)
- *   - Deduplicate samples using `seq` so over-polling doesn't amplify
- *     motion (the ATTiny updates at its own rate, independent of ours).
- *   - Continuously learn a Q8 baseline whenever the compensated value is
- *     inside the dead zone and no buttons are held. This prevents DC
- *     bias from spilling into HID as sustained drift / "teleports".
- *   - Apply a configurable right-shift (sensitivity-shift) to scale the
- *     output; fractional remainders are carried across polls so small
- *     sustained motions aren't lost.
- *   - Dynamic poll rate: fast while moving / buttons held, slow when idle.
- *   - Emit INPUT_REL_X / INPUT_REL_Y / INPUT_BTN_* events to this device.
- *     A separate zmk,input-listener node forwards them into HID.
+ * This is intentionally a near-verbatim port of the Arduino reference
+ * sketch in xiao nrf52840 trackpoint/src/main.cpp. Its only jobs are:
+ *   1. Poll the ATTiny over I2C and read 10 bytes.
+ *   2. Log the raw frame in the exact same format as the Arduino sketch
+ *      so logs from both can be diffed directly.
+ *   3. Switch between 10 ms "active" polling and 125 ms "idle" polling
+ *      based on the same dead-zone rule as the sketch.
+ *
+ * HID mouse output is intentionally NOT emitted here — the input listener
+ * node is also disabled in the overlay — so we can watch the raw ATTiny
+ * stream under ZMK without the cursor moving on the host.
+ *
+ * Protocol recap (ATTiny 0x20, 10 bytes little-endian):
+ *   buf[0]    : seq counter (wraps 0..255)
+ *   buf[1-2]  : int16_t raw_dx
+ *   buf[3-4]  : int16_t raw_dy
+ *   buf[5-6]  : uint16_t raw_x (0..1023 ADC)
+ *   buf[7-8]  : uint16_t raw_y (0..1023 ADC)
+ *   buf[9]    : button bitmap
+ *
+ * Invariant: raw_dx == (int16_t)raw_x - 512, same for Y.
  */
 
 #define DT_DRV_COMPAT zmk_input_trackpoint
@@ -29,69 +30,31 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
-#include <zephyr/input/input.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/sys/util.h>
 
 LOG_MODULE_REGISTER(input_trackpoint, CONFIG_INPUT_TRACKPOINT_LOG_LEVEL);
 
-#define OFFSET_FILTER_SHIFT 4 /* Q8 baseline learning rate: 1/16 per sample */
-#define TP_READ_LEN         10
+#define TP_READ_LEN     10
+
+/* Mirror of the Arduino sketch constants. */
+#define LOW_POLL_MS     125
+#define HIGH_POLL_MS    10
+#define IDLE_TIMEOUT_MS 1500
+#define DEAD_ZONE       30
+#define OFFSET          (-20) /* applied as `dx -= OFFSET`, i.e. dx += 20 */
 
 struct trackpoint_config {
     struct i2c_dt_spec i2c;
-    uint32_t poll_period_ms;
-    uint32_t idle_poll_period_ms;
-    uint32_t idle_timeout_ms;
-    uint16_t dead_zone;
-    uint8_t  sensitivity_shift;
 };
 
 struct trackpoint_data {
     const struct device *dev;
     struct k_work_delayable work;
 
-    int64_t last_move_time;
-    bool active; /* true => using fast poll rate */
-
-    int32_t dx_offset_q8;
-    int32_t dy_offset_q8;
-
-    /* Fractional remainders kept across polls so sub-integer motion
-     * accumulates instead of being clipped to zero. */
-    int16_t dx_remainder;
-    int16_t dy_remainder;
-
-    uint8_t last_buttons;
-    uint8_t last_seq;
-    bool    seq_valid; /* last_seq has been populated at least once */
+    uint32_t current_poll_ms;
+    int64_t  last_move_time;
 };
-
-/* Apply sensitivity right-shift with remainder carry. */
-static inline int16_t tp_scale(int16_t raw, int16_t *remainder, uint8_t shift) {
-    if (shift == 0) {
-        return raw;
-    }
-
-    int32_t total = (int32_t)raw + (int32_t)*remainder;
-    int32_t scaled;
-
-    if (total >= 0) {
-        scaled = total >> shift;
-        *remainder = (int16_t)(total - (scaled << shift));
-    } else {
-        /* Arithmetic right-shift on negative is implementation-defined in
-         * theory; use an explicit division that rounds toward zero so the
-         * remainder sign stays well-defined. */
-        int32_t neg = -total;
-        int32_t neg_scaled = neg >> shift;
-        scaled = -neg_scaled;
-        *remainder = (int16_t)(total - (scaled << shift));
-    }
-
-    return (int16_t)scaled;
-}
 
 static int trackpoint_poll_once(const struct device *dev) {
     const struct trackpoint_config *cfg = dev->config;
@@ -103,124 +66,39 @@ static int trackpoint_poll_once(const struct device *dev) {
         return ret;
     }
 
-    uint8_t seq     = buf[0];
-    int16_t raw_dx  = (int16_t)((uint16_t)buf[1] | ((uint16_t)buf[2] << 8));
-    int16_t raw_dy  = (int16_t)((uint16_t)buf[3] | ((uint16_t)buf[4] << 8));
-    /* Also grab the absolute ADC readings (LE uint16, 0..1023 range)
-     * so debug logs can distinguish "stick physically moved" from
-     * "ATTiny fed us noise". Protocol: raw_dx == raw_x - 512. */
-    uint16_t raw_ax = (uint16_t)buf[5] | ((uint16_t)buf[6] << 8);
-    uint16_t raw_ay = (uint16_t)buf[7] | ((uint16_t)buf[8] << 8);
-    uint8_t buttons = buf[9];
+    uint8_t  seq     = buf[0];
+    int16_t  dx      = (int16_t)((uint16_t)buf[1] | ((uint16_t)buf[2] << 8));
+    int16_t  dy      = (int16_t)((uint16_t)buf[3] | ((uint16_t)buf[4] << 8));
+    uint16_t raw_x   = (uint16_t)buf[5] | ((uint16_t)buf[6] << 8);
+    uint16_t raw_y   = (uint16_t)buf[7] | ((uint16_t)buf[8] << 8);
+    uint8_t  buttons = buf[9];
 
-    bool fresh_sample = !data->seq_valid || (seq != data->last_seq);
-    data->last_seq = seq;
-    data->seq_valid = true;
+    dx -= OFFSET;
+    dy -= OFFSET;
 
-    int16_t off_dx  = (int16_t)((data->dx_offset_q8 + 128) >> 8);
-    int16_t off_dy  = (int16_t)((data->dy_offset_q8 + 128) >> 8);
-    int16_t comp_dx = raw_dx - off_dx;
-    int16_t comp_dy = raw_dy - off_dy;
+    /* Same single-line readout the Arduino sketch produces. */
+    LOG_INF("poll_ms=%u  seq=%u  dx=%d  dy=%d  raw_x=%u  raw_y=%u  buttons=%u",
+            data->current_poll_ms, seq, dx, dy, raw_x, raw_y, buttons);
 
-    /* Continuous baseline self-calibration: whenever we're within the
-     * dead zone and no buttons are held, nudge the stored baseline toward
-     * the current raw value. Removing the previous "!active" gate keeps
-     * DC bias from accumulating while the user is using the stick, which
-     * was the main cause of spontaneous pointer drift/teleportation. */
-    if (buttons == 0 &&
-        abs(comp_dx) < (int)cfg->dead_zone &&
-        abs(comp_dy) < (int)cfg->dead_zone) {
-
-        int32_t tgt_dx_q8 = ((int32_t)raw_dx) << 8;
-        int32_t tgt_dy_q8 = ((int32_t)raw_dy) << 8;
-
-        data->dx_offset_q8 += (tgt_dx_q8 - data->dx_offset_q8) >> OFFSET_FILTER_SHIFT;
-        data->dy_offset_q8 += (tgt_dy_q8 - data->dy_offset_q8) >> OFFSET_FILTER_SHIFT;
-
-        off_dx  = (int16_t)((data->dx_offset_q8 + 128) >> 8);
-        off_dy  = (int16_t)((data->dy_offset_q8 + 128) >> 8);
-        comp_dx = raw_dx - off_dx;
-        comp_dy = raw_dy - off_dy;
-
-        /* Also slowly bleed off any leftover scaling remainders while
-         * idle, so they can't accumulate into a surprise jump. */
-        data->dx_remainder = 0;
-        data->dy_remainder = 0;
-    }
-
-    int16_t dx = comp_dx;
-    int16_t dy = comp_dy;
-    if (abs(dx) < (int)cfg->dead_zone && abs(dy) < (int)cfg->dead_zone) {
+    if (abs((int)dx) < DEAD_ZONE && abs((int)dy) < DEAD_ZONE) {
         dx = 0;
         dy = 0;
     }
 
-    dx = tp_scale(dx, &data->dx_remainder, cfg->sensitivity_shift);
-    dy = tp_scale(dy, &data->dy_remainder, cfg->sensitivity_shift);
-
-    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_SWAP_XY)) {
-        int16_t tmp = dx;
-        dx = dy;
-        dy = tmp;
-    }
-    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_X)) {
-        dx = -dx;
-    }
-    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_Y)) {
-        dy = -dy;
-    }
-
-    bool moved = (dx != 0) || (dy != 0);
-
-    /* Only inject motion into HID if this is a genuinely new sample from
-     * the ATTiny; duplicated readings (we polled faster than the slave
-     * updated) would otherwise double-count every motion event. */
-    if (moved && fresh_sample) {
-        int64_t now_log = k_uptime_get();
-        int64_t quiet_ms = now_log - data->last_move_time;
-
-        /* Full raw dump for every motion report. Makes it easy to
-         * correlate ATTiny output with perceived cursor behavior. */
-        LOG_INF("mv seq=%u adc=(%u,%u) raw=(%d,%d) off=(%d,%d) "
-                "comp=(%d,%d) out=(%d,%d) btn=0x%x qt=%lldms",
-                seq, raw_ax, raw_ay,
-                raw_dx, raw_dy, off_dx, off_dy, comp_dx, comp_dy,
-                dx, dy, buttons, (long long)quiet_ms);
-
-        /* If we were quiet for a while and suddenly see a big delta,
-         * flag it so it's easy to grep for teleports in the log. */
-        if (quiet_ms > 400 && (abs(dx) > 3 || abs(dy) > 3)) {
-            LOG_WRN("teleport? quiet=%lldms out=(%d,%d) comp=(%d,%d) raw=(%d,%d)",
-                    (long long)quiet_ms, dx, dy, comp_dx, comp_dy, raw_dx, raw_dy);
-        }
-
-        input_report_rel(dev, INPUT_REL_X, dx, false, K_NO_WAIT);
-        input_report_rel(dev, INPUT_REL_Y, dy, true, K_NO_WAIT);
-    }
-
-    uint8_t changed = buttons ^ data->last_buttons;
-    if (changed) {
-        if (changed & BIT(0)) {
-            input_report_key(dev, INPUT_BTN_0,
-                             (buttons & BIT(0)) ? 1 : 0, true, K_NO_WAIT);
-        }
-        if (changed & BIT(1)) {
-            input_report_key(dev, INPUT_BTN_1,
-                             (buttons & BIT(1)) ? 1 : 0, true, K_NO_WAIT);
-        }
-        if (changed & BIT(2)) {
-            input_report_key(dev, INPUT_BTN_2,
-                             (buttons & BIT(2)) ? 1 : 0, true, K_NO_WAIT);
-        }
-        data->last_buttons = buttons;
-    }
-
     int64_t now = k_uptime_get();
-    if (moved || buttons) {
-        data->active = true;
-        data->last_move_time = now;
-    } else if (data->active && (now - data->last_move_time > (int64_t)cfg->idle_timeout_ms)) {
-        data->active = false;
+
+    if (abs((int)dx) > DEAD_ZONE || abs((int)dy) > DEAD_ZONE) {
+        if (data->current_poll_ms == LOW_POLL_MS) {
+            LOG_INF("--- MOVEMENT: Switching to %u ms poll ---", HIGH_POLL_MS);
+        }
+        data->current_poll_ms = HIGH_POLL_MS;
+        data->last_move_time  = now;
+    } else {
+        if (data->current_poll_ms == HIGH_POLL_MS &&
+            (now - data->last_move_time) > (int64_t)IDLE_TIMEOUT_MS) {
+            LOG_INF("--- MOVEMENT: Switching to %u ms poll ---", LOW_POLL_MS);
+            data->current_poll_ms = LOW_POLL_MS;
+        }
     }
 
     return 0;
@@ -231,15 +109,13 @@ static void trackpoint_work_handler(struct k_work *work) {
     struct trackpoint_data *data =
         CONTAINER_OF(dwork, struct trackpoint_data, work);
     const struct device *dev = data->dev;
-    const struct trackpoint_config *cfg = dev->config;
 
     int ret = trackpoint_poll_once(dev);
     if (ret < 0) {
         LOG_WRN("I2C read failed: %d", ret);
     }
 
-    uint32_t period = data->active ? cfg->poll_period_ms : cfg->idle_poll_period_ms;
-    k_work_reschedule(&data->work, K_MSEC(period));
+    k_work_reschedule(&data->work, K_MSEC(data->current_poll_ms));
 }
 
 static int trackpoint_init(const struct device *dev) {
@@ -251,42 +127,22 @@ static int trackpoint_init(const struct device *dev) {
         return -ENODEV;
     }
 
-    data->dev            = dev;
-    data->active         = false;
-    data->last_move_time = 0;
-    data->dx_offset_q8   = 0;
-    data->dy_offset_q8   = 0;
-    data->dx_remainder   = 0;
-    data->dy_remainder   = 0;
-    data->last_buttons   = 0;
-    data->last_seq       = 0;
-    data->seq_valid      = false;
+    data->dev             = dev;
+    data->current_poll_ms = LOW_POLL_MS;
+    data->last_move_time  = 0;
 
     k_work_init_delayable(&data->work, trackpoint_work_handler);
-    /* Delay the first poll a bit so the ATTiny has time to come up. */
     k_work_schedule(&data->work, K_MSEC(500));
 
-    LOG_INF("trackpoint init on %s @ 0x%02x "
-            "(fast=%ums idle=%ums dz=%u sh=%u invx=%d invy=%d swap=%d)",
-            cfg->i2c.bus->name, cfg->i2c.addr,
-            cfg->poll_period_ms, cfg->idle_poll_period_ms, cfg->dead_zone,
-            cfg->sensitivity_shift,
-            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_X),
-            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_Y),
-            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_SWAP_XY));
-
+    LOG_INF("trackpoint DEBUG init on %s @ 0x%02x (minimal, HID disabled)",
+            cfg->i2c.bus->name, cfg->i2c.addr);
     return 0;
 }
 
 #define TP_INST(n)                                                                 \
     static struct trackpoint_data trackpoint_data_##n;                             \
     static const struct trackpoint_config trackpoint_cfg_##n = {                   \
-        .i2c                 = I2C_DT_SPEC_INST_GET(n),                            \
-        .poll_period_ms      = DT_INST_PROP(n, poll_period_ms),                    \
-        .idle_poll_period_ms = DT_INST_PROP(n, idle_poll_period_ms),               \
-        .idle_timeout_ms     = DT_INST_PROP(n, idle_timeout_ms),                   \
-        .dead_zone           = DT_INST_PROP(n, dead_zone),                         \
-        .sensitivity_shift   = DT_INST_PROP(n, sensitivity_shift),                 \
+        .i2c = I2C_DT_SPEC_INST_GET(n),                                            \
     };                                                                             \
     DEVICE_DT_INST_DEFINE(n, trackpoint_init, NULL,                                \
                           &trackpoint_data_##n, &trackpoint_cfg_##n,               \
