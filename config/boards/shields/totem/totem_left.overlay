@@ -6,7 +6,7 @@
 
 #include "totem.dtsi"
 
-#include <nrf-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 
 &kscan0 {
@@ -33,15 +33,15 @@
 &pinctrl {
     tp_i2c_default: tp_i2c_default {
         group1 {
-            psels = <NRF_PSEL(TWI_SDA, 1, 0)>,
-                    <NRF_PSEL(TWI_SCL, 0, 16)>;
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
         };
     };
 
     tp_i2c_sleep: tp_i2c_sleep {
         group1 {
-            psels = <NRF_PSEL(TWI_SDA, 1, 0)>,
-                    <NRF_PSEL(TWI_SCL, 0, 16)>;
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
             low-power-enable;
         };
     };
