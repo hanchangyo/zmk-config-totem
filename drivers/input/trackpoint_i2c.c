@@ -119,9 +119,18 @@ static void tp_poll_work(struct k_work *work)
     out_dy = CLAMP(out_dy, -cfg->max_delta, cfg->max_delta);
 
     if (stale_gap) {
-        LOG_WRN("stale sample: elapsed %u ms vs expected %u ms — dropping HID",
-                elapsed, data->current_poll_ms);
+        LOG_WRN("stale: elapsed=%u ms expected=%u ms  raw=(%d,%d)  out=(%d,%d)",
+                elapsed, data->current_poll_ms, raw_dx, raw_dy, out_dx, out_dy);
     } else if (out_dx != 0 || out_dy != 0) {
+        /* Flag any sample that actually hits (or is clamped to) max-delta — */
+        /* these are the candidates for "teleport" events on the host.       */
+        if (abs(out_dx) >= cfg->max_delta || abs(out_dy) >= cfg->max_delta) {
+            LOG_WRN("big: elapsed=%u raw=(%d,%d) comp=(%d,%d) out=(%d,%d)",
+                    elapsed, raw_dx, raw_dy, comp_dx, comp_dy, out_dx, out_dy);
+        } else {
+            LOG_DBG("mv : elapsed=%u raw=(%d,%d) out=(%d,%d)",
+                    elapsed, raw_dx, raw_dy, out_dx, out_dy);
+        }
         input_report_rel(dev, INPUT_REL_X, out_dx, false, K_NO_WAIT);
         input_report_rel(dev, INPUT_REL_Y, out_dy, true,  K_NO_WAIT);
     }
