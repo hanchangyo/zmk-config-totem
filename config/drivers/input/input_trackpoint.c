@@ -171,6 +171,26 @@ static int trackpoint_poll_once(const struct device *dev) {
      * the ATTiny; duplicated readings (we polled faster than the slave
      * updated) would otherwise double-count every motion event. */
     if (moved && fresh_sample) {
+        int64_t now_log = k_uptime_get();
+        int64_t quiet_ms = now_log - data->last_move_time;
+
+        /* Full raw dump for every motion report. Makes it easy to
+         * correlate ATTiny output with perceived cursor behavior. */
+        LOG_INF("mv seq=%u buf=[%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x] "
+                "raw=(%d,%d) off=(%d,%d) comp=(%d,%d) out=(%d,%d) btn=0x%x qt=%lldms",
+                seq,
+                buf[0], buf[1], buf[2], buf[3], buf[4],
+                buf[5], buf[6], buf[7], buf[8], buf[9],
+                raw_dx, raw_dy, off_dx, off_dy, comp_dx, comp_dy,
+                dx, dy, buttons, (long long)quiet_ms);
+
+        /* If we were quiet for a while and suddenly see a big delta,
+         * flag it so it's easy to grep for teleports in the log. */
+        if (quiet_ms > 400 && (abs(dx) > 3 || abs(dy) > 3)) {
+            LOG_WRN("teleport? quiet=%lldms out=(%d,%d) comp=(%d,%d) raw=(%d,%d)",
+                    (long long)quiet_ms, dx, dy, comp_dx, comp_dy, raw_dx, raw_dy);
+        }
+
         input_report_rel(dev, INPUT_REL_X, dx, false, K_NO_WAIT);
         input_report_rel(dev, INPUT_REL_Y, dy, true, K_NO_WAIT);
     }
