@@ -83,4 +83,19 @@
         status = "okay";
         device = <&trackpoint>;
     };
+
+    chosen {
+        /* Route printk()/LOG_* through the USB CDC ACM console below. */
+        zephyr,console = &cdc_acm_uart0;
+    };
+};
+
+/* USB CDC ACM serial endpoint used by CONFIG_ZMK_USB_LOGGING. Without a
+ * DT node for zephyr,cdc-acm-uart the Kconfig deps SERIAL_HAS_DRIVER and
+ * DT_HAS_ZEPHYR_CDC_ACM_UART_ENABLED never get set, so we have to
+ * materialize one here. */
+&zephyr_udc0 {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+    };
 };
