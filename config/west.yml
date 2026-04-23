@@ -7,5 +7,7 @@ manifest:
       remote: zmkfirmware
       revision: v0.3.0
       import: app/west.yml
+    - name: zmk-attiny-tp
+      path: zmk-attiny-tp
   self:
     path: config
