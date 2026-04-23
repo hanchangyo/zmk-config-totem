@@ -15,8 +15,9 @@ config INPUT_HANC_TRACKPOINT_I2C_THREAD_STACK_SIZE
     int "Stack size for the trackpoint poll work queue"
     default 1024
 
-module = INPUT_HANC_TRACKPOINT_I2C
-module-str = hanc_trackpoint_i2c
-source "subsys/logging/Kconfig.template.log_config"
+config INPUT_HANC_TRACKPOINT_I2C_LOG_LEVEL
+    int "Log level for hanc_trackpoint_i2c (0=off 1=ERR 2=WRN 3=INF 4=DBG)"
+    range 0 4
+    default 2
 
 endif # INPUT_HANC_TRACKPOINT_I2C
