@@ -1,0 +1,24 @@
+config INPUT_HANC_TRACKPOINT_I2C
+	bool "hanc ATTiny I2C trackpoint input driver"
+	default y
+	depends on DT_HAS_HANC_TRACKPOINT_I2C_ENABLED
+	depends on I2C
+	select INPUT
+	help
+	  Enable the hanc,trackpoint-i2c input driver. Polls an ATTiny-based
+	  trackpoint module over I2C and emits INPUT_EV_REL events.
+
+if INPUT_HANC_TRACKPOINT_I2C
+
+config INPUT_HANC_TRACKPOINT_I2C_INIT_PRIORITY
+	int "hanc trackpoint init priority"
+	default 90
+	help
+	  Init priority for the hanc trackpoint driver. Must be greater than
+	  CONFIG_I2C_INIT_PRIORITY so the bus is available.
+
+module = INPUT_HANC_TRACKPOINT_I2C
+module-str = hanc_trackpoint_i2c
+source "subsys/logging/Kconfig.template.log_config"
+
+endif # INPUT_HANC_TRACKPOINT_I2C

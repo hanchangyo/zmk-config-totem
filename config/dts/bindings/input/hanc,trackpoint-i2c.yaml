@@ -1,0 +1,72 @@
+description: |
+  hanc ATTiny-based I2C TrackPoint module.
+
+  Reports a 10-byte frame: [seq, dx_lo, dx_hi, dy_lo, dy_hi,
+                            x_lo, x_hi, y_lo, y_hi, buttons].
+
+  Dynamic polling: idle -> low-poll-ms, on motion -> high-poll-ms,
+  revert after idle-timeout-ms of no motion.
+
+compatible: "hanc,trackpoint-i2c"
+
+include: i2c-device.yaml
+
+properties:
+  low-poll-ms:
+    type: int
+    default: 125
+    description: Idle-state poll interval in milliseconds.
+
+  high-poll-ms:
+    type: int
+    default: 5
+    description: Active-state poll interval in milliseconds.
+
+  idle-timeout-ms:
+    type: int
+    default: 1500
+    description: Time of no motion before reverting to idle polling.
+
+  dead-zone:
+    type: int
+    default: 20
+    description: Absolute value below which dx/dy are treated as zero.
+
+  offset-filter-shift:
+    type: int
+    default: 4
+    description: |
+      Right-shift amount used by the Q8 baseline drift filter in idle mode.
+      Higher = slower baseline tracking. 4 means 1/16 update per sample.
+
+  invert-x:
+    type: boolean
+    description: Invert the reported X axis.
+
+  invert-y:
+    type: boolean
+    description: Invert the reported Y axis.
+
+  swap-xy:
+    type: boolean
+    description: Swap X and Y axes (applied before invert).
+
+  sensitivity-percent:
+    type: int
+    default: 100
+    description: Pointer sensitivity as a percentage (100 = 1.0x).
+
+  sensitivity-step-percent:
+    type: int
+    default: 25
+    description: Step used by &tp_tune TP_SENS_UP / TP_SENS_DN.
+
+  sensitivity-min-percent:
+    type: int
+    default: 25
+    description: Minimum sensitivity (clamp bound for runtime adjust).
+
+  sensitivity-max-percent:
+    type: int
+    default: 400
+    description: Maximum sensitivity (clamp bound for runtime adjust).

@@ -6,6 +6,8 @@
 
 #include "totem.dtsi"
 
+#include <dt-bindings/pinctrl/nrf-pinctrl.h>
+
 &kscan0 {
     col-gpios
         = <&xiao_d 4 GPIO_ACTIVE_HIGH>
@@ -14,4 +16,67 @@
         , <&xiao_d 9 GPIO_ACTIVE_HIGH>
         , <&xiao_d 8 GPIO_ACTIVE_HIGH>
         ;
+};
+
+&pinctrl {
+    tp_i2c_default: tp_i2c_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+        };
+    };
+
+    tp_i2c_sleep: tp_i2c_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+            low-power-enable;
+        };
+    };
+};
+
+&i2c0 {
+    status = "okay";
+    compatible = "nordic,nrf-twim";
+    clock-frequency = <I2C_BITRATE_FAST>;
+    pinctrl-0 = <&tp_i2c_default>;
+    pinctrl-1 = <&tp_i2c_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    trackpoint: trackpoint@20 {
+        compatible = "hanc,trackpoint-i2c";
+        reg = <0x20>;
+
+        low-poll-ms = <125>;
+        high-poll-ms = <5>;
+        idle-timeout-ms = <1500>;
+
+        dead-zone = <20>;
+        offset-filter-shift = <4>;
+
+        /* Uncomment any of these to flip defaults at compile time:   */
+        /* invert-x; */
+        /* invert-y; */
+        /* swap-xy;  */
+
+        sensitivity-percent      = <100>;
+        sensitivity-step-percent = <25>;
+        sensitivity-min-percent  = <25>;
+        sensitivity-max-percent  = <400>;
+    };
+};
+
+/ {
+    tp_listener: tp_listener {
+        compatible = "zmk,input-listener";
+        device = <&trackpoint>;
+    };
+
+    behaviors {
+        tp_tune: tp_tune {
+            compatible = "zmk,behavior-tp-tune";
+            #binding-cells = <2>;
+            device = <&trackpoint>;
+        };
+    };
 };

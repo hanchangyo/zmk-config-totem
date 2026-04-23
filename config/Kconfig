@@ -1,0 +1,2 @@
+rsource "drivers/input/Kconfig"
+rsource "drivers/behaviors/Kconfig"

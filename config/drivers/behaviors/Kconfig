@@ -1,0 +1,9 @@
+config ZMK_BEHAVIOR_TP_TUNE
+	bool "tp_tune behavior for runtime trackpoint tuning"
+	default y
+	depends on DT_HAS_ZMK_BEHAVIOR_TP_TUNE_ENABLED
+	depends on INPUT_HANC_TRACKPOINT_I2C
+	help
+	  Enable the &tp_tune ZMK behavior that adjusts sensitivity, inversion
+	  and axis swap of a hanc,trackpoint-i2c device at runtime from the
+	  keymap.

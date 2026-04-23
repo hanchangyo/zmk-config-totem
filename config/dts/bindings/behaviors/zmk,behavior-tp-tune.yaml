@@ -1,0 +1,20 @@
+description: |
+  Keymap-bindable behavior that tunes a hanc,trackpoint-i2c device at runtime.
+
+  Binding params:
+    param1: action code (see include/dt-bindings/zmk/tp_tune.h)
+    param2: optional value (e.g. percent for TP_SENS_SET)
+
+compatible: "zmk,behavior-tp-tune"
+
+properties:
+  label:
+    type: string
+  "#binding-cells":
+    type: int
+    required: true
+    const: 2
+  device:
+    type: phandle
+    required: true
+    description: Phandle to the hanc,trackpoint-i2c device to tune.
