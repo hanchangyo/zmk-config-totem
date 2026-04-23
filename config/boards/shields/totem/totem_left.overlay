@@ -59,10 +59,21 @@
         reg = <0x20>;
         status = "okay";
 
-        poll-period-ms = <5>;
+        /* Active poll = 8ms (125 Hz). The ATTiny updates at its own rate
+         * and the driver dedupes by sequence number, so over-polling is
+         * harmless but wastes energy. */
+        poll-period-ms = <8>;
         idle-poll-period-ms = <125>;
         idle-timeout-ms = <1500>;
-        dead-zone = <20>;
+
+        /* Raw samples within +/- dead-zone are treated as no-motion and
+         * used to self-calibrate the baseline; tune up if the pointer
+         * still drifts while untouched. */
+        dead-zone = <30>;
+
+        /* Output divisor = 2^sensitivity-shift. Increase for slower,
+         * finer cursor movement; decrease to make the stick feel faster. */
+        sensitivity-shift = <3>;
     };
 };
 

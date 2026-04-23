@@ -7,7 +7,7 @@ include: i2c-device.yaml
 properties:
   poll-period-ms:
     type: int
-    default: 5
+    default: 8
     description: Poll period (ms) while the trackpoint is actively moving.
 
   idle-poll-period-ms:
@@ -22,7 +22,16 @@ properties:
 
   dead-zone:
     type: int
-    default: 20
+    default: 30
     description: |
       Raw dx/dy samples within +/- this range are treated as no-motion and
       also used to adaptively learn the zero-motion baseline.
+
+  sensitivity-shift:
+    type: int
+    default: 3
+    description: |
+      Right-shift applied to the compensated dx/dy before reporting.
+      0 = raw (very fast), 1 = /2, 2 = /4, 3 = /8, ... Larger values
+      produce slower, finer cursor motion. Fractional remainders are
+      carried across polls so slow drags still move pixel-by-pixel.
