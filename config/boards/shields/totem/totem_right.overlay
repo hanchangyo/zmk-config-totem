@@ -6,6 +6,9 @@
 
 #include "totem.dtsi"
 
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+
 &default_transform {
     col-offset = <5>;
 };
@@ -18,4 +21,101 @@
         , <&xiao_d 5 GPIO_ACTIVE_HIGH>
         , <&xiao_d 4 GPIO_ACTIVE_HIGH>
         ;
+};
+
+/*
+ * The right half hosts the ATTiny I2C TrackPoint module and is the
+ * split central. Wiring (matches the standalone Arduino test project):
+ *     SDA -> P1.00
+ *     SCL -> P0.16
+ *
+ * i2c1 is used because i2c0's default pins (D4/D5) are already taken by
+ * the key matrix columns. The XIAO BLE board DTS already has i2c1
+ * enabled as "nordic,nrf-twi", we just remap its pinctrl psels.
+ *
+ * Note: P1.00 / P0.16 are NOT broken out on the standard XIAO D-pin
+ * headers — they live on the inner battery-side pads. Wire the ATTiny
+ * directly to those pads on the RIGHT XIAO BLE.
+ */
+
+&pinctrl {
+    tp_i2c_default: tp_i2c_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+        };
+    };
+
+    tp_i2c_sleep: tp_i2c_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 0)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 16)>;
+            low-power-enable;
+        };
+    };
+};
+
+&i2c1 {
+    status = "okay";
+    /* The ATTiny I2C slave is software/USI-based and doesn't cleanly
+     * handle fast mode (400 kHz). The Arduino reference test uses
+     * Wire.begin() with its default 100 kHz (standard), and at that
+     * speed the ADC readings stay stable. I2C_BITRATE_FAST caused
+     * the ATTiny to return torn / noisy samples that looked like
+     * random pointer teleports. */
+    clock-frequency = <I2C_BITRATE_STANDARD>;
+    pinctrl-0 = <&tp_i2c_default>;
+    pinctrl-1 = <&tp_i2c_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    trackpoint: trackpoint@20 {
+        compatible = "zmk,input-trackpoint";
+        reg = <0x20>;
+        status = "okay";
+
+        /* Active poll = 5 ms target; actual cadence is 5 ms + I2C
+         * transaction time. The ATTiny updates at its own rate and the
+         * driver dedupes by sequence number, so over-polling is harmless
+         * but wastes energy. */
+        poll-period-ms = <5>;
+        idle-poll-period-ms = <125>;
+        idle-timeout-ms = <1500>;
+
+        /* Raw samples within +/- dead-zone are treated as no-motion and
+         * used to self-calibrate the baseline; tune up if the pointer
+         * still drifts while untouched. */
+        dead-zone = <30>;
+
+        /* Output divisor = 2^sensitivity-shift. Increase for slower,
+         * finer cursor movement; decrease to make the stick feel faster. */
+        sensitivity-shift = <2>;
+    };
+};
+
+/ {
+    /*
+     * Forward trackpoint INPUT_REL_X/Y and INPUT_BTN_0/1/2 events into
+     * ZMK's pointing subsystem, which turns them into HID mouse
+     * reports over USB / BLE.
+     */
+    trackpoint_listener: trackpoint_listener {
+        compatible = "zmk,input-listener";
+        status = "okay";
+        device = <&trackpoint>;
+    };
+
+    chosen {
+        /* Route printk()/LOG_* through the USB CDC ACM console below. */
+        zephyr,console = &cdc_acm_uart0;
+    };
+};
+
+/* USB CDC ACM serial endpoint used by CONFIG_ZMK_USB_LOGGING. Without a
+ * DT node for zephyr,cdc-acm-uart the Kconfig deps SERIAL_HAS_DRIVER and
+ * DT_HAS_ZEPHYR_CDC_ACM_UART_ENABLED never get set, so we have to
+ * materialize one here. */
+&zephyr_udc0 {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+    };
 };

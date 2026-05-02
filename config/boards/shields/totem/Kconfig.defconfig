@@ -1,11 +1,11 @@
 # Copyright (c) 2022 The ZMK Contributors
 # SPDX-License-Identifier: MIT
 
-if SHIELD_TOTEM_LEFT
+if SHIELD_TOTEM_RIGHT
 
 config ZMK_KEYBOARD_NAME
     default "TOTEM hanc"
-    
+
 config ZMK_SPLIT_ROLE_CENTRAL
     default y
 
