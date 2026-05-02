@@ -39,7 +39,7 @@ LOG_MODULE_REGISTER(input_trackpoint, CONFIG_INPUT_TRACKPOINT_LOG_LEVEL);
 
 /* Mirror of the Arduino sketch constants. */
 #define LOW_POLL_MS     125
-#define HIGH_POLL_MS    10
+#define HIGH_POLL_MS    8
 #define IDLE_TIMEOUT_MS 1500
 #define DEAD_ZONE       30
 #define OFFSET          (-20) /* applied as `dx -= OFFSET`, i.e. dx += 20 */
