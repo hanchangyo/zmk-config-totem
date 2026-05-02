@@ -1,17 +1,32 @@
 /*
- * Minimal ATTiny I2C TrackPoint driver for ZMK — DEBUG BUILD.
+ * ATTiny I2C TrackPoint driver for ZMK.
  *
- * This is intentionally a near-verbatim port of the Arduino reference
- * sketch in xiao nrf52840 trackpoint/src/main.cpp. Its only jobs are:
- *   1. Poll the ATTiny over I2C and read 10 bytes.
- *   2. Log the raw frame in the exact same format as the Arduino sketch
- *      so logs from both can be diffed directly.
- *   3. Switch between 10 ms "active" polling and 125 ms "idle" polling
- *      based on the same dead-zone rule as the sketch.
+ * Pipeline per poll:
+ *   1. Read 10 bytes from the ATTiny (seq, raw_dx, raw_dy, raw_x, raw_y,
+ *      buttons).
+ *   2. Apply the fixed OFFSET compensation that the Arduino reference
+ *      sketch uses (empirical ~-20 DC bias on this hardware).
+ *   3. Dead-zone: samples with |dx| < dead-zone AND |dy| < dead-zone are
+ *      reported as zero motion.
+ *   4. Sensitivity right-shift with fractional remainder carry, so slow
+ *      drags still accumulate pixel-by-pixel under the divisor.
+ *   5. Optional swap-xy / invert-x / invert-y (Kconfig).
+ *   6. Emit INPUT_REL_X / INPUT_REL_Y / INPUT_BTN_* to this device; a
+ *      zmk,input-listener forwards them into HID.
  *
- * HID mouse output is intentionally NOT emitted here — the input listener
- * node is also disabled in the overlay — so we can watch the raw ATTiny
- * stream under ZMK without the cursor moving on the host.
+ * Scheduling uses a fixed absolute deadline (next_poll_deadline_ms +=
+ * current_poll_ms) so the actual poll cadence matches the configured
+ * value regardless of how long the I2C transaction itself takes — naive
+ * `k_work_reschedule(K_MSEC(N))` would add the handler's runtime on top
+ * of every interval.
+ *
+ * Note: there is intentionally NO software spike rejector or EMA filter
+ * here. Earlier branches added those to mask BLE-induced ADC glitches
+ * and active-motion jitter. Once the noise was traced to the analog
+ * front end and fixed in hardware (local decoupling on ATTiny VDD,
+ * ferrite + bulk on the 3V3 rail, RC low-pass on the ADC inputs) the
+ * software workarounds became unnecessary. If new noise modes appear,
+ * re-introduce them rather than tweaking this baseline.
  *
  * Protocol recap (ATTiny 0x20, 10 bytes little-endian):
  *   buf[0]    : seq counter (wraps 0..255)
@@ -19,7 +34,7 @@
  *   buf[3-4]  : int16_t raw_dy
  *   buf[5-6]  : uint16_t raw_x (0..1023 ADC)
  *   buf[7-8]  : uint16_t raw_y (0..1023 ADC)
- *   buf[9]    : button bitmap
+ *   buf[9]    : button bitmap (bit0..2 -> BTN_0..2)
  *
  * Invariant: raw_dx == (int16_t)raw_x - 512, same for Y.
  */
@@ -30,22 +45,27 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
+#include <zephyr/input/input.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/util.h>
 
 LOG_MODULE_REGISTER(input_trackpoint, CONFIG_INPUT_TRACKPOINT_LOG_LEVEL);
 
 #define TP_READ_LEN     10
 
-/* Mirror of the Arduino sketch constants. */
-#define LOW_POLL_MS     125
-#define HIGH_POLL_MS    8
-#define IDLE_TIMEOUT_MS 1500
-#define DEAD_ZONE       30
-#define OFFSET          (-20) /* applied as `dx -= OFFSET`, i.e. dx += 20 */
+/* Empirical DC bias from the Arduino reference sketch; applied as
+ * `dx -= OFFSET`, i.e. dx += 20. Stays here as a #define because it
+ * tracks a property of the ATTiny firmware, not the keymap. */
+#define OFFSET          (-20)
 
 struct trackpoint_config {
     struct i2c_dt_spec i2c;
+    uint32_t poll_period_ms;
+    uint32_t idle_poll_period_ms;
+    uint32_t idle_timeout_ms;
+    uint16_t dead_zone;
+    uint8_t  sensitivity_shift;
 };
 
 struct trackpoint_data {
@@ -54,7 +74,107 @@ struct trackpoint_data {
 
     uint32_t current_poll_ms;
     int64_t  last_move_time;
+
+    uint8_t  last_buttons;
+
+    /* Fractional remainders kept across polls so the sensitivity shift
+     * doesn't silently truncate slow sustained motion to zero. */
+    int16_t  dx_remainder;
+    int16_t  dy_remainder;
+
+    /* Absolute uptime (ms) of when the NEXT poll should fire. Tracking
+     * this lets us schedule on a fixed cadence regardless of how long
+     * the I2C transaction in this handler takes. Without it
+     * `k_work_reschedule(K_MSEC(N))` adds N ms on top of the work
+     * duration each cycle, so e.g. an 8 ms target slips to ~11 ms when
+     * the ATtiny's wake + 9-sample ADC burst takes ~3 ms. */
+    int64_t  next_poll_deadline_ms;
 };
+
+/* Right-shift with remainder carry. shift==0 is a pass-through. */
+static inline int16_t tp_scale(int16_t raw, int16_t *remainder, uint8_t shift) {
+    if (shift == 0) {
+        return raw;
+    }
+
+    int32_t total = (int32_t)raw + (int32_t)*remainder;
+    int32_t scaled;
+
+    if (total >= 0) {
+        scaled = total >> shift;
+        *remainder = (int16_t)(total - (scaled << shift));
+    } else {
+        /* Round toward zero so the carried remainder sign stays
+         * well-defined regardless of the compiler's behavior for
+         * arithmetic right-shift on negatives. */
+        int32_t neg = -total;
+        int32_t neg_scaled = neg >> shift;
+        scaled = -neg_scaled;
+        *remainder = (int16_t)(total - (scaled << shift));
+    }
+
+    return (int16_t)scaled;
+}
+
+static void tp_emit_motion(const struct device *dev, int16_t dx, int16_t dy) {
+    const struct trackpoint_config *cfg = dev->config;
+    struct trackpoint_data *data = dev->data;
+
+    if (abs((int)dx) < (int)cfg->dead_zone &&
+        abs((int)dy) < (int)cfg->dead_zone) {
+        /* Bleed any leftover scaling remainder so it can't accumulate
+         * into a surprise jump on the next push. */
+        data->dx_remainder = 0;
+        data->dy_remainder = 0;
+        return;
+    }
+
+    int16_t out_dx = tp_scale(dx, &data->dx_remainder, cfg->sensitivity_shift);
+    int16_t out_dy = tp_scale(dy, &data->dy_remainder, cfg->sensitivity_shift);
+
+    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_SWAP_XY)) {
+        int16_t tmp = out_dx;
+        out_dx = out_dy;
+        out_dy = tmp;
+    }
+    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_X)) {
+        out_dx = -out_dx;
+    }
+    if (IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_Y)) {
+        out_dy = -out_dy;
+    }
+
+    if (out_dx == 0 && out_dy == 0) {
+        return;
+    }
+
+    input_report_rel(dev, INPUT_REL_X, out_dx, false, K_NO_WAIT);
+    input_report_rel(dev, INPUT_REL_Y, out_dy, true,  K_NO_WAIT);
+}
+
+static void tp_emit_buttons(const struct device *dev, uint8_t buttons) {
+    struct trackpoint_data *data = dev->data;
+    uint8_t changed = buttons ^ data->last_buttons;
+
+    if (!changed) {
+        return;
+    }
+
+    if (changed & BIT(0)) {
+        input_report_key(dev, INPUT_BTN_0,
+                         (buttons & BIT(0)) ? 1 : 0, true, K_NO_WAIT);
+    }
+    if (changed & BIT(1)) {
+        input_report_key(dev, INPUT_BTN_1,
+                         (buttons & BIT(1)) ? 1 : 0, true, K_NO_WAIT);
+    }
+    if (changed & BIT(2)) {
+        input_report_key(dev, INPUT_BTN_2,
+                         (buttons & BIT(2)) ? 1 : 0, true, K_NO_WAIT);
+    }
+
+    data->last_buttons = buttons;
+}
 
 static int trackpoint_poll_once(const struct device *dev) {
     const struct trackpoint_config *cfg = dev->config;
@@ -76,29 +196,30 @@ static int trackpoint_poll_once(const struct device *dev) {
     dx -= OFFSET;
     dy -= OFFSET;
 
-    /* Same single-line readout the Arduino sketch produces. */
-    LOG_INF("poll_ms=%u  seq=%u  dx=%d  dy=%d  raw_x=%u  raw_y=%u  buttons=%u",
+    LOG_DBG("poll_ms=%u  seq=%u  dx=%d  dy=%d  raw_x=%u  raw_y=%u  buttons=%u",
             data->current_poll_ms, seq, dx, dy, raw_x, raw_y, buttons);
 
-    if (abs((int)dx) < DEAD_ZONE && abs((int)dy) < DEAD_ZONE) {
-        dx = 0;
-        dy = 0;
-    }
+    tp_emit_motion(dev, dx, dy);
+    tp_emit_buttons(dev, buttons);
+
+    bool above_dz = (abs((int)dx) > (int)cfg->dead_zone) ||
+                    (abs((int)dy) > (int)cfg->dead_zone);
+    bool is_motion = above_dz || (buttons != 0);
 
     int64_t now = k_uptime_get();
-
-    if (abs((int)dx) > DEAD_ZONE || abs((int)dy) > DEAD_ZONE) {
-        if (data->current_poll_ms == LOW_POLL_MS) {
-            LOG_INF("--- MOVEMENT: Switching to %u ms poll ---", HIGH_POLL_MS);
+    if (is_motion) {
+        if (data->current_poll_ms == cfg->idle_poll_period_ms) {
+            LOG_INF("--- MOVEMENT: switching to %u ms poll ---",
+                    cfg->poll_period_ms);
         }
-        data->current_poll_ms = HIGH_POLL_MS;
+        data->current_poll_ms = cfg->poll_period_ms;
         data->last_move_time  = now;
-    } else {
-        if (data->current_poll_ms == HIGH_POLL_MS &&
-            (now - data->last_move_time) > (int64_t)IDLE_TIMEOUT_MS) {
-            LOG_INF("--- MOVEMENT: Switching to %u ms poll ---", LOW_POLL_MS);
-            data->current_poll_ms = LOW_POLL_MS;
-        }
+    } else if (data->current_poll_ms == cfg->poll_period_ms &&
+               (now - data->last_move_time) >
+                   (int64_t)cfg->idle_timeout_ms) {
+        LOG_INF("--- IDLE: switching to %u ms poll ---",
+                cfg->idle_poll_period_ms);
+        data->current_poll_ms = cfg->idle_poll_period_ms;
     }
 
     return 0;
@@ -110,12 +231,36 @@ static void trackpoint_work_handler(struct k_work *work) {
         CONTAINER_OF(dwork, struct trackpoint_data, work);
     const struct device *dev = data->dev;
 
+    /* Snapshot the rate BEFORE polling, since trackpoint_poll_once may
+     * flip current_poll_ms via the active/idle state machine. */
+    uint32_t prev_poll_ms = data->current_poll_ms;
+
     int ret = trackpoint_poll_once(dev);
     if (ret < 0) {
         LOG_WRN("I2C read failed: %d", ret);
     }
 
-    k_work_reschedule(&data->work, K_MSEC(data->current_poll_ms));
+    int64_t now = k_uptime_get();
+
+    /* Re-base the deadline whenever the poll rate changes so we don't
+     * burst-catch-up after going IDLE->ACTIVE (we'd issue many
+     * back-to-back polls trying to "make up" the missed fast cycles)
+     * and so we don't delay the first slow poll after going ACTIVE->
+     * IDLE. */
+    if (data->current_poll_ms != prev_poll_ms) {
+        data->next_poll_deadline_ms = now;
+    }
+
+    data->next_poll_deadline_ms += data->current_poll_ms;
+
+    int64_t delay_ms = data->next_poll_deadline_ms - now;
+    if (delay_ms < 0) {
+        /* Handler took longer than the interval. Fire ASAP and let the
+         * deadline catch up naturally. */
+        delay_ms = 0;
+    }
+
+    k_work_reschedule(&data->work, K_MSEC(delay_ms));
 }
 
 static int trackpoint_init(const struct device *dev) {
@@ -128,21 +273,40 @@ static int trackpoint_init(const struct device *dev) {
     }
 
     data->dev             = dev;
-    data->current_poll_ms = LOW_POLL_MS;
+    data->current_poll_ms = cfg->idle_poll_period_ms;
     data->last_move_time  = 0;
+    data->last_buttons    = 0;
+    data->dx_remainder    = 0;
+    data->dy_remainder    = 0;
+
+    /* Align the first deadline with the initial 500 ms delay so the
+     * fixed-cadence math is consistent from the very first poll. */
+    data->next_poll_deadline_ms = k_uptime_get() + 500;
 
     k_work_init_delayable(&data->work, trackpoint_work_handler);
     k_work_schedule(&data->work, K_MSEC(500));
 
-    LOG_INF("trackpoint DEBUG init on %s @ 0x%02x (minimal, HID disabled)",
-            cfg->i2c.bus->name, cfg->i2c.addr);
+    LOG_INF("trackpoint init on %s @ 0x%02x "
+            "(active=%u ms idle=%u ms dz=%u sh=%u "
+            "invx=%d invy=%d swap=%d)",
+            cfg->i2c.bus->name, cfg->i2c.addr,
+            cfg->poll_period_ms, cfg->idle_poll_period_ms,
+            cfg->dead_zone, cfg->sensitivity_shift,
+            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_X),
+            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_INVERT_Y),
+            IS_ENABLED(CONFIG_INPUT_TRACKPOINT_SWAP_XY));
     return 0;
 }
 
 #define TP_INST(n)                                                                 \
     static struct trackpoint_data trackpoint_data_##n;                             \
     static const struct trackpoint_config trackpoint_cfg_##n = {                   \
-        .i2c = I2C_DT_SPEC_INST_GET(n),                                            \
+        .i2c                 = I2C_DT_SPEC_INST_GET(n),                            \
+        .poll_period_ms      = DT_INST_PROP(n, poll_period_ms),                    \
+        .idle_poll_period_ms = DT_INST_PROP(n, idle_poll_period_ms),               \
+        .idle_timeout_ms     = DT_INST_PROP(n, idle_timeout_ms),                   \
+        .dead_zone           = DT_INST_PROP(n, dead_zone),                         \
+        .sensitivity_shift   = DT_INST_PROP(n, sensitivity_shift),                 \
     };                                                                             \
     DEVICE_DT_INST_DEFINE(n, trackpoint_init, NULL,                                \
                           &trackpoint_data_##n, &trackpoint_cfg_##n,               \
