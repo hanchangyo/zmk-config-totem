@@ -14,11 +14,13 @@
  *   6. Emit INPUT_REL_X / INPUT_REL_Y / INPUT_BTN_* to this device; a
  *      zmk,input-listener forwards them into HID.
  *
- * Scheduling uses a fixed absolute deadline (next_poll_deadline_ms +=
- * current_poll_ms) so the actual poll cadence matches the configured
- * value regardless of how long the I2C transaction itself takes — naive
- * `k_work_reschedule(K_MSEC(N))` would add the handler's runtime on top
- * of every interval.
+ * Scheduling uses a simple `k_work_reschedule(K_MSEC(current_poll_ms))`
+ * after each poll. That makes the actual cycle time slightly longer
+ * than the configured value (interval + I2C/handler runtime), which is
+ * fine: the ATTiny's own ADC pacing is the real cadence anyway, and an
+ * earlier attempt to enforce a fixed absolute deadline introduced
+ * periodic cursor jumps when the catch-up rescheduling collided with
+ * the active/idle state machine.
  *
  * Note: there is intentionally NO software spike rejector or EMA filter
  * here. Earlier branches added those to mask BLE-induced ADC glitches
@@ -81,14 +83,6 @@ struct trackpoint_data {
      * doesn't silently truncate slow sustained motion to zero. */
     int16_t  dx_remainder;
     int16_t  dy_remainder;
-
-    /* Absolute uptime (ms) of when the NEXT poll should fire. Tracking
-     * this lets us schedule on a fixed cadence regardless of how long
-     * the I2C transaction in this handler takes. Without it
-     * `k_work_reschedule(K_MSEC(N))` adds N ms on top of the work
-     * duration each cycle, so e.g. an 8 ms target slips to ~11 ms when
-     * the ATtiny's wake + 9-sample ADC burst takes ~3 ms. */
-    int64_t  next_poll_deadline_ms;
 };
 
 /* Right-shift with remainder carry. shift==0 is a pass-through. */
@@ -231,36 +225,12 @@ static void trackpoint_work_handler(struct k_work *work) {
         CONTAINER_OF(dwork, struct trackpoint_data, work);
     const struct device *dev = data->dev;
 
-    /* Snapshot the rate BEFORE polling, since trackpoint_poll_once may
-     * flip current_poll_ms via the active/idle state machine. */
-    uint32_t prev_poll_ms = data->current_poll_ms;
-
     int ret = trackpoint_poll_once(dev);
     if (ret < 0) {
         LOG_WRN("I2C read failed: %d", ret);
     }
 
-    int64_t now = k_uptime_get();
-
-    /* Re-base the deadline whenever the poll rate changes so we don't
-     * burst-catch-up after going IDLE->ACTIVE (we'd issue many
-     * back-to-back polls trying to "make up" the missed fast cycles)
-     * and so we don't delay the first slow poll after going ACTIVE->
-     * IDLE. */
-    if (data->current_poll_ms != prev_poll_ms) {
-        data->next_poll_deadline_ms = now;
-    }
-
-    data->next_poll_deadline_ms += data->current_poll_ms;
-
-    int64_t delay_ms = data->next_poll_deadline_ms - now;
-    if (delay_ms < 0) {
-        /* Handler took longer than the interval. Fire ASAP and let the
-         * deadline catch up naturally. */
-        delay_ms = 0;
-    }
-
-    k_work_reschedule(&data->work, K_MSEC(delay_ms));
+    k_work_reschedule(&data->work, K_MSEC(data->current_poll_ms));
 }
 
 static int trackpoint_init(const struct device *dev) {
@@ -278,10 +248,6 @@ static int trackpoint_init(const struct device *dev) {
     data->last_buttons    = 0;
     data->dx_remainder    = 0;
     data->dy_remainder    = 0;
-
-    /* Align the first deadline with the initial 500 ms delay so the
-     * fixed-cadence math is consistent from the very first poll. */
-    data->next_poll_deadline_ms = k_uptime_get() + 500;
 
     k_work_init_delayable(&data->work, trackpoint_work_handler);
     k_work_schedule(&data->work, K_MSEC(500));
