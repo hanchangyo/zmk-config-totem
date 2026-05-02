@@ -65,10 +65,11 @@
         reg = <0x20>;
         status = "okay";
 
-        /* Active poll = 8ms (125 Hz). The ATTiny updates at its own rate
-         * and the driver dedupes by sequence number, so over-polling is
-         * harmless but wastes energy. */
-        poll-period-ms = <8>;
+        /* Active poll = 5ms (200 Hz target; actual cadence is a bit
+         * slower because of I2C transaction time). The ATTiny updates
+         * at its own rate and the driver dedupes by sequence number,
+         * so over-polling is harmless but wastes energy. */
+        poll-period-ms = <5>;
         idle-poll-period-ms = <125>;
         idle-timeout-ms = <1500>;
 

@@ -7,7 +7,7 @@ include: i2c-device.yaml
 properties:
   poll-period-ms:
     type: int
-    default: 8
+    default: 5
     description: Poll period (ms) while the trackpoint is actively moving.
 
   idle-poll-period-ms:
