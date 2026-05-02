@@ -85,9 +85,9 @@
 
 / {
     /*
-     * Forward trackpoint INPUT_REL_*/INPUT_BTN_* events into ZMK's
-     * pointing subsystem (which in turn turns them into HID mouse
-     * reports over USB / BLE).
+     * Forward trackpoint INPUT_REL_X/Y and INPUT_BTN_0/1/2 events into
+     * ZMK's pointing subsystem, which turns them into HID mouse
+     * reports over USB / BLE.
      */
     trackpoint_listener: trackpoint_listener {
         compatible = "zmk,input-listener";
