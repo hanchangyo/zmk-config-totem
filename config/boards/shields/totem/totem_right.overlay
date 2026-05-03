@@ -77,7 +77,7 @@
          * transaction time. The ATTiny updates at its own rate and the
          * driver dedupes by sequence number, so over-polling is harmless
          * but wastes energy. */
-        poll-period-ms = <13>;
+        poll-period-ms = <8>;
         idle-poll-period-ms = <125>;
         idle-timeout-ms = <1500>;
 
